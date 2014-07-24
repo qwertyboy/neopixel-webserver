@@ -23,13 +23,13 @@ char buffer[MAX_PAGENAME_LEN+1]; // additional character for terminating null
 char cmdBuffer[33];
 EthernetServer server(80);
 
-const int ledsPerStrip = 60;
+const int ledsPerStrip = 45;
 DMAMEM int displayMemory[ledsPerStrip * 6];
 int drawingMemory[ledsPerStrip * 6];
 const int config = WS2811_GRB | WS2811_800kHz;
 OctoWS2811 leds(ledsPerStrip, displayMemory, drawingMemory, config);
 long previousMillis = 0;
-long interval = 15000;
+long timeout = 15timeout000;
 
 void setup()
 {
@@ -107,7 +107,7 @@ void loop()
     client.stop();
   }
   
-  if((currentMillis - previousMillis > interval) && (leds.getPixel(0) != 0x000000)){
+  if((currentMillis - previousMillis > timeout) && (leds.getPixel(0) != 0x000000)){
     previousMillis = currentMillis;
     Serial.println("Timeout reached! Turning off.");
     
