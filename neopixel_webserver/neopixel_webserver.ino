@@ -29,7 +29,7 @@ int drawingMemory[ledsPerStrip * 6];
 const int config = WS2811_GRB | WS2811_800kHz;
 OctoWS2811 leds(ledsPerStrip, displayMemory, drawingMemory, config);
 long previousMillis = 0;
-long timeout = 15timeout000;
+long timeout = 15000;
 
 void setup()
 {
@@ -98,6 +98,8 @@ void loop()
           client.println("<param name='Port' value='8081'>");
           client.println("<param name='Zoom' value='true'></applet></div>");
           
+          
+          client.print("</body></html>");
           client.stop();
         }
       }
