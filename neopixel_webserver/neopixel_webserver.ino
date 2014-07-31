@@ -17,7 +17,7 @@
 #define OFF    0x000000
 
 byte mac[] = {0x90, 0xA2, 0xDA, 0x00, 0x81, 0x8D};
-byte ip[] = {192, 168, 2, 105};
+byte ip[] = {192, 168, 2, 13};
 const int MAX_PAGENAME_LEN = 8; // max characters in page name 
 char buffer[MAX_PAGENAME_LEN+1]; // additional character for terminating null
 char cmdBuffer[33];
@@ -33,13 +33,27 @@ long timeout = 15000;
 
 void setup()
 {
-  Ethernet.begin(mac, ip);
+  Serial.begin(57600);
+  delay(2000);
+  
+  if(Ethernet.begin(mac) == 0){
+    Serial.println("DHCP configuration failed! Halting.");
+    for(;;)
+      ;
+  }
+  
+  Serial.print("DHCP IP address: ");
+  for (byte thisByte = 0; thisByte < 4; thisByte++) {
+    // print the value of each byte of the IP address:
+    Serial.print(Ethernet.localIP()[thisByte], DEC);
+    Serial.print(".");
+  }
+  Serial.println();
+  
   server.begin();
-  Serial.begin(9600);
   
   leds.begin();
   leds.show();
-  delay(2000);
 }
 
 void loop()
@@ -92,12 +106,17 @@ void loop()
           client.println("<input type='hidden' name='color' value='#000000'>");
           client.println("<input type='submit' value='Off'></form></div>");
           
+          client.println("<div align='center'><img src='http://nathanspi.no-ip.org:8082'></img></div>");
+          
+          /*
+          Use this code if running Yawcam on a pc host
+          
           client.print("<div align='center'><applet code='YawApplet.class' archive='YawApplet.jar'");
           client.println(" codebase='http://nathanspi.no-ip.org:8081' width='640' height='480'>");
           client.println("<param name='Host' value='nathanspi.no-ip.org'>");
           client.println("<param name='Port' value='8081'>");
           client.println("<param name='Zoom' value='true'></applet></div>");
-          
+          */
           
           client.print("</body></html>");
           client.stop();
