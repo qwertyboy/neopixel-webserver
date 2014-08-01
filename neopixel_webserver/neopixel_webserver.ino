@@ -18,6 +18,10 @@
 
 byte mac[] = {0x90, 0xA2, 0xDA, 0x00, 0x81, 0x8D};
 byte ip[] = {192, 168, 2, 13};
+int dhcpSucess = 0;
+int retry = 0;
+int maxRetries = 4;
+
 const int MAX_PAGENAME_LEN = 8; // max characters in page name 
 char buffer[MAX_PAGENAME_LEN+1]; // additional character for terminating null
 char cmdBuffer[33];
@@ -36,10 +40,16 @@ void setup()
   Serial.begin(57600);
   delay(2000);
   
-  if(Ethernet.begin(mac) == 0){
-    Serial.println("DHCP configuration failed! Halting.");
-    for(;;)
-      ;
+  dhcpSucess = Ethernet.begin(mac);
+  while(dhcpSucess == 0){
+    retry += 1;
+    if(retry > maxRetries){
+      Serial.println("Maximum retries exceeded, system halting!");
+      while(1){}
+    }
+    
+    Serial.println("DHCP configuration failed! Trying again in 15 seconds.");
+    dhcpSucess = Ethernet.begin(mac);
   }
   
   Serial.print("DHCP IP address: ");
