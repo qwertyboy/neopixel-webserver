@@ -1,0 +1,35 @@
+HTTP/1.1 200 OK
+Content-Type: text/html
+
+<html>
+	<head>
+		<title>LED Control Panel</title>
+	</head>
+	
+	<body>
+		<div align="left">
+			<h2>Select a mode:</h2>
+			
+			<form action="/" method="POST">
+				<input list="modes" name="mode">
+				<datalist id="modes">
+					<option value="Static Color">
+					<option value="Slow Rainbow">
+					<option value="Pulse">
+					<option value="Spin">
+					<option value="Theater Chase">
+					<option value="Rainbow Theater Chase">
+					<option value="Random Animations">
+					<option value="Weather Clock">
+				</datalist>
+				<input type="submit">
+			</form>
+		</div>
+		
+		<div align="center">
+			<h2>Live Camera</h2>
+			
+			<img src="http://nathanspi.no-ip.org:8082"></img>
+		</div>
+	</body>
+</html>

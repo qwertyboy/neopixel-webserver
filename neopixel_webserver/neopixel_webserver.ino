@@ -18,7 +18,7 @@
 
 byte mac[] = {0x90, 0xA2, 0xDA, 0x00, 0x81, 0x8D};
 byte ip[] = {192, 168, 2, 13};
-int dhcpSucess = 0;
+int dhcpSuccess = 0;
 int retry = 0;
 int maxRetries = 4;
 
@@ -40,8 +40,8 @@ void setup()
   Serial.begin(57600);
   delay(2000);
   
-  dhcpSucess = Ethernet.begin(mac);
-  while(dhcpSucess == 0){
+  dhcpSuccess = Ethernet.begin(mac);
+  while(dhcpSuccess == 0){
     retry += 1;
     if(retry > maxRetries){
       Serial.println("Maximum retries exceeded, system halting!");
@@ -49,7 +49,7 @@ void setup()
     }
     
     Serial.println("DHCP configuration failed! Trying again in 15 seconds.");
-    dhcpSucess = Ethernet.begin(mac);
+    dhcpSuccess = Ethernet.begin(mac);
   }
   
   Serial.print("DHCP IP address: ");
