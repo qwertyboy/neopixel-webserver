@@ -42,10 +42,11 @@ OctoWS2811 leds(ledsPerStrip, displayMemory, drawingMemory, config);
 
 long previousMillis = 0;
 int rainbowInterval = 56;
+int pulseInterval = 50;
 long timeout = 15000;
 
 int ledMode = 0;
-int color = 0;
+//int color = 0;
 int rainbowColors[] = {16711680, 16713728, 16716032, 16718080, 16720384, 16722432, 16724736, 16726784, 16729088, 16731136, 16733440,
                        16735488, 16737792, 16739840, 16742144, 16744192, 16746496, 16748544, 16750848, 16752896, 16755200, 16757248,
                        16759552, 16761600, 16763904, 16765952, 16768256, 16770304, 16772608, 16774656, 16776960, 16187136, 15662848,
@@ -111,23 +112,23 @@ void loop()
   if(client){
     while (client.connected()){
       if (client.available()){
-        memset(buffer,0, sizeof(buffer));
+        memset(buffer, 0, 9);
         
-        if(client.readBytesUntil('/', buffer,sizeof(buffer))){
+        if(client.readBytesUntil('/', buffer, 9)){
           Serial.println(buffer);
           
           if(strcmp(buffer,"POST ") == 0){
             client.find("\n\r");
             
             while(client.findUntil("mode=", "\n\r")){
-              memset(cmdBuffer, 0, 127);
+              memset(cmdBuffer, 0, 129);
               memset(colorStrBuf, 0, 7);
               cmd = "";
               modeCmd = "";
               colorStr = "";
               colorCmd = 0;
               
-              byte bytesRead = client.readBytesUntil('\n\r', cmdBuffer, 127);
+              byte bytesRead = client.readBytesUntil('\n\r', cmdBuffer, 129);
               
               for(int i = 0; i < bytesRead; i++){
                 cmd = cmd + cmdBuffer[i];
@@ -215,11 +216,13 @@ void loop()
     leds.setPixel(i, colorCmd);
     }
     
-    //leds.show();
+    leds.show();
   }
   
   //Rainbow Mode
   else if(ledMode == 2){
+    static int color;
+    
     if(currentMillis - previousMillis > rainbowInterval){
       previousMillis = currentMillis;
         
@@ -228,26 +231,37 @@ void loop()
         leds.setPixel(x, rainbowColors[index]);
       }
         
-      //leds.show();
-        
       if(color < 178){
         color += 1;
       }else{
         color = 0;
       }
     }
-    //leds.show();
+    
+    leds.show();
+    leds.show();
   }
   
   //Pulse
   else if(ledMode == 3){
-    for(int i = 0; i < 91; i++){
+    static int i;
+    
+    if(currentMillis - previousMillis > pulseInterval){
+      previousMillis = currentMillis;
+      
       for(int j = 0; j < (leds.numPixels() - 26); j++){
         leds.setPixel(j, fadeVals[i]);
       }
-      //leds.show();
-      delay(50);
+      
+      if(i < 90){
+        i += 1;
+      }else{
+        i = 0;
+      }
     }
+    
+    leds.show();
+    leds.show();
   }
   
   //Spin Bounce
@@ -261,14 +275,14 @@ void loop()
           for(int i = 0; i < 30; i++){
             leds.setPixel(x + i, rainbowColors[index]);
           }
-          //leds.show();
+          leds.show();
         
           delay(10);
         
           for(int i = 0; i < 30; i++){
             leds.setPixel(x + i, 0x000000);
           }
-          //leds.show();
+          leds.show();
         }
       }else{
         for(x = (leds.numPixels() - 56); x >= 0; x--){
@@ -276,14 +290,14 @@ void loop()
           for(int i = 0; i < 30; i++){
             leds.setPixel(x + i, rainbowColors[index]);
           }
-          //leds.show();
+          leds.show();
         
           delay(10);
         
           for(int i = 0; i < 30; i++){
             leds.setPixel(x + i, 0x000000);
           }
-          //leds.show();
+          leds.show();
         }
       }
       
@@ -298,7 +312,7 @@ void loop()
         leds.setPixel(i+q, 0xFFFF00);    //turn every third pixel on
       }
         
-      //leds.show();
+      leds.show();
      
       delay(50);
      
@@ -319,7 +333,7 @@ void loop()
           leds.setPixel(i+q, rainbowColors[index]);    //turn every third pixel on
         }
         
-        //leds.show();
+        leds.show();
      
         delay(50);
      
@@ -336,7 +350,7 @@ void loop()
       leds.setPixel(i, 0x333333);
     }
     
-    //leds.show();
+    leds.show();
   }
   
   //Weather clock
@@ -345,7 +359,7 @@ void loop()
       leds.setPixel(i, 0x010101);
     }
     
-    //leds.show();
+    leds.show();
   }
   
   else{
@@ -353,11 +367,8 @@ void loop()
       leds.setPixel(i, 0x000000);
     }
     
-    //leds.show();
+    leds.show();
   }
-  leds.show();
-  leds.show();
-  leds.show();
 }
 
 void sendHeader(EthernetClient client, char *title){
