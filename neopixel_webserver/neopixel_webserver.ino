@@ -1,20 +1,22 @@
 /*
- * WebServerPost sketch
- * Turns pin 8 on and off using HTML form
- */
+  -------------------- Network-Controlled Neopixel Driver --------------------
+  
+  This program is intended to be run on a Teensy 3.1 connected to an Arduino
+  ethernet shield. Slight modification may be needed for other ehternet
+  adapters.
+  
+  This program hosts a webserver that can be used to control Adafruit Neopixel
+  led strips.
+  
+  ---------------------------- Nathan Duprey 2014 ----------------------------
+*/
+  
 
 #include <SPI.h>
 #include <Ethernet.h>
 #include <OctoWS2811.h>
 
-#define RED    0xFF0000
-#define GREEN  0x00FF00
-#define BLUE   0x0000FF
-#define YELLOW 0xFFFF00
-#define PINK   0xFF1088
-#define ORANGE 0xE05800
-#define WHITE  0xFFFFFF
-#define OFF    0x000000
+#define Host_name nathan-ledctrl
 
 byte mac[] = {0x90, 0xA2, 0xDA, 0x00, 0x81, 0x8D};
 byte ip[] = {192, 168, 2, 13};
@@ -22,10 +24,14 @@ int dhcpSuccess = 0;
 int retry = 0;
 int maxRetries = 4;
 
-const int MAX_PAGENAME_LEN = 8; // max characters in page name 
+const int MAX_PAGENAME_LEN = 8; //max characters in page name 
 char buffer[MAX_PAGENAME_LEN+1]; // additional character for terminating null
-char cmdBuffer[33];
+char cmdBuffer[129];
 String cmd = "";
+String modeCmd = "";
+String colorStr = "";
+char colorStrBuf[7];
+int colorCmd = 0;
 EthernetServer server(80);
 
 const int ledsPerStrip = 45;
@@ -33,10 +39,13 @@ DMAMEM int displayMemory[ledsPerStrip * 6];
 int drawingMemory[ledsPerStrip * 6];
 const int config = WS2811_GRB | WS2811_800kHz;
 OctoWS2811 leds(ledsPerStrip, displayMemory, drawingMemory, config);
+
 long previousMillis = 0;
+int rainbowInterval = 56;
 long timeout = 15000;
 
 int ledMode = 0;
+int color = 0;
 int rainbowColors[] = {16711680, 16713728, 16716032, 16718080, 16720384, 16722432, 16724736, 16726784, 16729088, 16731136, 16733440,
                        16735488, 16737792, 16739840, 16742144, 16744192, 16746496, 16748544, 16750848, 16752896, 16755200, 16757248,
                        16759552, 16761600, 16763904, 16765952, 16768256, 16770304, 16772608, 16774656, 16776960, 16187136, 15662848,
@@ -99,11 +108,11 @@ void loop()
   unsigned long currentMillis = millis();
   
   EthernetClient client = server.available();
-  if (client) {
-    while (client.connected()) {
-      if (client.available()) {
-        // GET, POST, or HEAD
-        memset(buffer,0, sizeof(buffer)); // clear the buffer
+  if(client){
+    while (client.connected()){
+      if (client.available()){
+        memset(buffer,0, sizeof(buffer));
+        
         if(client.readBytesUntil('/', buffer,sizeof(buffer))){
           Serial.println(buffer);
           
@@ -111,79 +120,58 @@ void loop()
             client.find("\n\r");
             
             while(client.findUntil("mode=", "\n\r")){
-              memset(cmdBuffer, 0, sizeof(cmdBuffer));
-              
-              byte bytesRead = client.readBytesUntil('\n\r', cmdBuffer, sizeof(cmdBuffer));
-              
+              memset(cmdBuffer, 0, 127);
+              memset(colorStrBuf, 0, 7);
               cmd = "";
+              modeCmd = "";
+              colorStr = "";
+              colorCmd = 0;
+              
+              byte bytesRead = client.readBytesUntil('\n\r', cmdBuffer, 127);
+              
               for(int i = 0; i < bytesRead; i++){
                 cmd = cmd + cmdBuffer[i];
               }
               
-              Serial.println(bytesRead);
-              Serial.println(cmdBuffer);
+              modeCmd = cmd.substring(0, cmd.indexOf('&'));
+              colorStr = cmd.substring(cmd.indexOf('%23') + 1);
+              colorStr.toCharArray(colorStrBuf, 7);
+              colorCmd = strtol(colorStrBuf, NULL, 16);
               
-              if(cmd == "Static+Color"){
+              
+              
+              Serial.println(bytesRead);
+              //Serial.println(cmdBuffer);
+              Serial.println(modeCmd);
+              Serial.println(colorCmd);
+              
+              if(modeCmd == "Static+Color"){
                 ledMode = 1;
-              }
-              else if(cmd == "Slow+Rainbow"){
+              }else if(modeCmd == "Slow+Rainbow"){
                 ledMode = 2;
-              }
-              else if(cmd == "Pulse"){
+              }else if(modeCmd == "Pulse"){
                 ledMode = 3;
-              }
-              else if(cmd == "Spin+Bounce"){
+              }else if(modeCmd == "Spin+Bounce"){
                 ledMode = 4;
-              }
-              else if(cmd == "Theater+Chase"){
+              }else if(modeCmd == "Theater+Chase"){
                 ledMode = 5;
-              }
-              else if(cmd == "Rainbow+Theater+Chase"){
+              }else if(modeCmd == "Rainbow+Theater+Chase"){
                 ledMode = 6;
-              }
-              else if(cmd == "Random+Animations"){
+              }else if(modeCmd == "Random+Animations"){
                 ledMode = 7;
-              }
-              else if(cmd == "Weather+Clock"){
+              }else if(modeCmd == "Weather+Clock"){
                 ledMode = 8;
-              }
-              else{
+              }else if(modeCmd == "Off"){
                 ledMode = 0;
+              }else{
+                ledMode = -1;
               }
               
               Serial.println(ledMode);
             }
           }
           sendHeader(client,"LED Control Panel");
-          /*
-          
-          client.println("<div align='left'><h3>Select a LED color or choose your own:</h3>");
-          
-          client.println("<form action='/' method='POST'>");
-          client.println("<input type='radio' name='color' value='#ff0000'> Red<br>");
-          client.println("<input type='radio' name='color' value='#00ff00'> Green<br>");
-          client.println("<input type='radio' name='color' value='#0000ff'> Blue<br>");
-          client.println("<input type='radio' name='color' value='#ffff00'> Yellow<br>");
-          client.println("<input type='radio' name='color' value='#ff1088'> Pink<br>");
-          client.println("<input type='radio' name='color' value='#e05800'> Orange<br>");
-          client.println("<input type='radio' name='color' value='#ffffff'> White<br>");
-          client.println("Choose your own color: <input type='color' name='color'><br>");
-          client.println("<input type='submit' value='Submit'></form>");
-          
-          client.println("<form action='/' method='POST'>");
-          client.println("<input type='hidden' name='color' value='#000000'>");
-          client.println("<input type='submit' value='Off'></form></div>");
-          
-          client.println("<div align='center'><img src='http://nathanspi.no-ip.org:8082'></img></div>");
-          */
-          
-//          client.println("HTTP/1.1 200 OK");
-//          client.println("Content-Type: text/html");
-//          client.println("<html>");
-//          client.println("<head>");
-//          client.println("<title>LED Control Panel</title>");
-//          client.println("</head>");
-//          client.println("<body>");
+
           client.println("<div align='left'>");
           client.println("<h2>Select a mode:</h2>");
           client.println("<form action='/' method='POST'>");
@@ -197,7 +185,9 @@ void loop()
           client.println("<option value='Rainbow Theater Chase'>");
           client.println("<option value='Random Animations'>");
           client.println("<option value='Weather Clock'>");
+          client.println("<option value='Off'>");
           client.println("</datalist>");
+          client.println("Pick a color: <input type='color' name='customColor'>");
           client.println("<input type='submit'>");
           client.println("</form>");
           client.println("</div>");
@@ -216,31 +206,37 @@ void loop()
     delay(1);
     client.stop();
   }
+  
+  //-------------------------------------------------- Effects --------------------------------------------------//
 
   //Static Color
   if(ledMode == 1){
     for(int i = 0; i < (leds.numPixels() - 26); i++){
-    leds.setPixel(i, 0xFF0000);
+    leds.setPixel(i, colorCmd);
     }
     
-    leds.show();
+    //leds.show();
   }
   
   //Rainbow Mode
   else if(ledMode == 2){
-    int color, x;
-    
-    for(color = 0; color < 180; color++){
-      for(x = 0; x < (leds.numPixels() - 26); x++){
+    if(currentMillis - previousMillis > rainbowInterval){
+      previousMillis = currentMillis;
+        
+      for(int x = 0; x < (leds.numPixels() - 26); x++){
         int index = (color + x) % 180;
         leds.setPixel(x, rainbowColors[index]);
       }
         
-      leds.show();
-      delayMicroseconds(56000);
+      //leds.show();
+        
+      if(color < 178){
+        color += 1;
+      }else{
+        color = 0;
+      }
     }
-    
-    leds.show();
+    //leds.show();
   }
   
   //Pulse
@@ -249,7 +245,7 @@ void loop()
       for(int j = 0; j < (leds.numPixels() - 26); j++){
         leds.setPixel(j, fadeVals[i]);
       }
-      leds.show();
+      //leds.show();
       delay(50);
     }
   }
@@ -265,14 +261,14 @@ void loop()
           for(int i = 0; i < 30; i++){
             leds.setPixel(x + i, rainbowColors[index]);
           }
-          leds.show();
+          //leds.show();
         
           delay(10);
         
           for(int i = 0; i < 30; i++){
             leds.setPixel(x + i, 0x000000);
           }
-          leds.show();
+          //leds.show();
         }
       }else{
         for(x = (leds.numPixels() - 56); x >= 0; x--){
@@ -280,14 +276,14 @@ void loop()
           for(int i = 0; i < 30; i++){
             leds.setPixel(x + i, rainbowColors[index]);
           }
-          leds.show();
+          //leds.show();
         
           delay(10);
         
           for(int i = 0; i < 30; i++){
             leds.setPixel(x + i, 0x000000);
           }
-          leds.show();
+          //leds.show();
         }
       }
       
@@ -302,7 +298,7 @@ void loop()
         leds.setPixel(i+q, 0xFFFF00);    //turn every third pixel on
       }
         
-      leds.show();
+      //leds.show();
      
       delay(50);
      
@@ -323,7 +319,7 @@ void loop()
           leds.setPixel(i+q, rainbowColors[index]);    //turn every third pixel on
         }
         
-        leds.show();
+        //leds.show();
      
         delay(50);
      
@@ -337,10 +333,19 @@ void loop()
   //Random Animations
   else if(ledMode == 7){
     for(int i = 0; i < (leds.numPixels() - 26); i++){
-      leds.setPixel(i, 0xFFFFFF);
+      leds.setPixel(i, 0x333333);
     }
     
-    leds.show();
+    //leds.show();
+  }
+  
+  //Weather clock
+  else if(ledMode == 8){
+    for(int i = 0; i < (leds.numPixels() - 26); i++){
+      leds.setPixel(i, 0x010101);
+    }
+    
+    //leds.show();
   }
   
   else{
@@ -348,10 +353,11 @@ void loop()
       leds.setPixel(i, 0x000000);
     }
     
-    leds.show();
+    //leds.show();
   }
-  
-  //leds.show();
+  leds.show();
+  leds.show();
+  leds.show();
 }
 
 void sendHeader(EthernetClient client, char *title){
