@@ -50,7 +50,7 @@ int rainbowInterval = 56;
 int pulseInterval = 50;
 int spinInterval = 10;
 int chaseInterval = 50;
-long timeout = 15000;
+int sparkleInterval = 1300;  //Tune this to get the desired update speed for sparkle effect (1300 default)
 
 int ledMode = 0;
 int rainbowColors[] = {16711680, 16713728, 16716032, 16718080, 16720384, 16722432, 16724736, 16726784, 16729088, 16731136, 16733440,
@@ -165,10 +165,12 @@ void loop()
                 ledMode = 6;
               }else if(modeCmd == "Rainbow+Theater+Chase"){
                 ledMode = 7;
-              }else if(modeCmd == "Random+Animations"){
+              }else if(modeCmd == "Sparkle"){
                 ledMode = 8;
-              }else if(modeCmd == "Weather+Clock"){
+              }else if(modeCmd == "Random+Animations"){
                 ledMode = 9;
+              }else if(modeCmd == "Weather+Clock"){
+                ledMode = 10;
               }else if(modeCmd == "Off"){
                 ledMode = 0;
               }else{
@@ -181,8 +183,8 @@ void loop()
           sendHeader(client,"LED Control Panel");
 
           client.println("<div align='left'>");
-          client.println("<h2>Select a mode:</h2>");
-          client.println("Static Color, Spin, Spin Bounce, and Theater Chase require a color selection.");
+          client.println("<h3>Select a mode:</h3>");
+          client.println("Static Color, Spin, Spin Bounce, Theater Chase, and Sparkle require a color selection.");
           client.println("<p><form action='/' method='POST'>");
           client.println("<input list='modes' name='mode'>");
           client.println("<datalist id='modes'>");
@@ -193,11 +195,12 @@ void loop()
           client.println("<option value='Spin Bounce'>");
           client.println("<option value='Theater Chase'>");
           client.println("<option value='Rainbow Theater Chase'>");
+          client.println("<option value='Sparkle'>");
           client.println("<option value='Random Animations'>");
           client.println("<option value='Weather Clock'>");
           client.println("<option value='Off'>");
-          client.println("</datalist><br>");
-          client.println("Pick a color: <input type='color' name='customColor'>");
+          client.println("</datalist>");
+          client.println("Pick a color: <input type='color' name='customColor'><br>");
           client.println("<input type='submit'>");
           client.println("</form></p>");
           client.println("</div>");
@@ -224,9 +227,10 @@ void loop()
     for(int i = 0; i < (leds.numPixels() - 26); i++){
       leds.setPixel(i, colorCmd);
     }
-    
-    leds.show();
-    leds.show();
+     
+    if(!leds.busy()){
+      leds.show();
+    }
   }
   
   //Rainbow Mode
@@ -244,8 +248,8 @@ void loop()
       if(color < 178){color++;}else{color = 0;}
     }
     
-    leds.show();
-    while(leds.busy()){
+    if(!leds.busy()){
+      leds.show();
     }
   }
   
@@ -257,14 +261,14 @@ void loop()
       prevMillis1 = millis1;
       
       for(int j = 0; j < (leds.numPixels() - 26); j++){
-        leds.setPixel(j, fadeVals[i]);
+        leds.setPixel(j, fadeVals[i] & random(0xFFFFFF) );
       }
       
       if(i < 90){i++;}else{i = 0;}
     }
     
-    leds.show();
-    while(leds.busy()){
+    if(!leds.busy()){
+      leds.show();
     }
   }
   
@@ -340,7 +344,6 @@ void loop()
       }
         
       leds.show();
-      leds.show();
      
       for(int i=0; i < (leds.numPixels() - 26); i=i+3){
         leds.setPixel(i+j, 0);
@@ -373,8 +376,33 @@ void loop()
     }
   }
   
-  //Random Animations
+  //Sparkle
   else if(ledMode == 8){
+    int blueOct = colorCmd & 0x0000FF;
+    int greenOct = (colorCmd & 0x00FF00) >> 8;
+    int redOct = (colorCmd & 0xFF0000) >> 16;
+    
+    for(int i = 0; i < (leds.numPixels() - 26); i++){
+      int brightness = 0;
+      int rand = random(0xFF);
+      rand = (rand * rand) / 0xFF;
+      
+      brightness += rand * blueOct / 0xFF;
+      brightness += (rand * greenOct / 0xFF) << 8;
+      brightness += (rand * redOct / 0xFF) << 16;
+      
+      if(!random(sparkleInterval)){
+      leds.setPixel(i, brightness);
+      }
+    }
+    
+    if(!leds.busy()){
+      leds.show();
+    }
+  }
+  
+  //Random Animations
+  else if(ledMode == 9){
     for(int i = 0; i < (leds.numPixels() - 26); i++){
       leds.setPixel(i, 0x333333);
     }
@@ -383,13 +411,13 @@ void loop()
   }
   
   //Weather clock
-  else if(ledMode == 9){
+  else if(ledMode == 10){
     for(int i = 0; i < (leds.numPixels() - 26); i++){
       leds.setPixel(i, 0x010101);
     }
     
-    leds.show();
-    while(leds.busy()){
+    if(!leds.busy()){
+      leds.show();
     }
   }
   
