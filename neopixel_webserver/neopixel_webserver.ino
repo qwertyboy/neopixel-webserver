@@ -26,13 +26,14 @@ int maxRetries = 4;
 
 const int MAX_PAGENAME_LEN = 8; //max characters in page name 
 char buffer[MAX_PAGENAME_LEN+1]; // additional character for terminating null
+EthernetServer server(80);
+
 char cmdBuffer[129];
 String cmd = "";
 String modeCmd = "";
 String colorStr = "";
 char colorStrBuf[7];
 int colorCmd = 0;
-EthernetServer server(80);
 
 const int ledsPerStrip = 45;
 DMAMEM int displayMemory[ledsPerStrip * 6];
@@ -40,13 +41,18 @@ int drawingMemory[ledsPerStrip * 6];
 const int config = WS2811_GRB | WS2811_800kHz;
 OctoWS2811 leds(ledsPerStrip, displayMemory, drawingMemory, config);
 
-long previousMillis = 0;
+unsigned long millis1 = 0;
+unsigned long millis2 = 0;
+unsigned long prevMillis1 = 0;
+unsigned long prevMillis2 = 0;
+
 int rainbowInterval = 56;
 int pulseInterval = 50;
+int spinInterval = 10;
+int chaseInterval = 50;
 long timeout = 15000;
 
 int ledMode = 0;
-//int color = 0;
 int rainbowColors[] = {16711680, 16713728, 16716032, 16718080, 16720384, 16722432, 16724736, 16726784, 16729088, 16731136, 16733440,
                        16735488, 16737792, 16739840, 16742144, 16744192, 16746496, 16748544, 16750848, 16752896, 16755200, 16757248,
                        16759552, 16761600, 16763904, 16765952, 16768256, 16770304, 16772608, 16774656, 16776960, 16187136, 15662848,
@@ -76,6 +82,9 @@ int fadeVals[] = {0x010101, 0x010101, 0x020202, 0x030303, 0x050505, 0x080808, 0x
 void setup()
 {
   Serial.begin(57600);
+  leds.begin();
+  leds.show();
+  
   delay(2000);
   
   dhcpSuccess = Ethernet.begin(mac);
@@ -99,14 +108,12 @@ void setup()
   Serial.println();
   
   server.begin();
-  
-  leds.begin();
-  leds.show();
 }
 
 void loop()
 {
-  unsigned long currentMillis = millis();
+  millis1 = millis();
+  millis2 = millis();
   
   EthernetClient client = server.available();
   if(client){
@@ -139,8 +146,6 @@ void loop()
               colorStr.toCharArray(colorStrBuf, 7);
               colorCmd = strtol(colorStrBuf, NULL, 16);
               
-              
-              
               Serial.println(bytesRead);
               //Serial.println(cmdBuffer);
               Serial.println(modeCmd);
@@ -152,16 +157,18 @@ void loop()
                 ledMode = 2;
               }else if(modeCmd == "Pulse"){
                 ledMode = 3;
-              }else if(modeCmd == "Spin+Bounce"){
+              }else if(modeCmd == "Spin"){
                 ledMode = 4;
-              }else if(modeCmd == "Theater+Chase"){
+              }else if(modeCmd == "Spin+Bounce"){
                 ledMode = 5;
-              }else if(modeCmd == "Rainbow+Theater+Chase"){
+              }else if(modeCmd == "Theater+Chase"){
                 ledMode = 6;
-              }else if(modeCmd == "Random+Animations"){
+              }else if(modeCmd == "Rainbow+Theater+Chase"){
                 ledMode = 7;
-              }else if(modeCmd == "Weather+Clock"){
+              }else if(modeCmd == "Random+Animations"){
                 ledMode = 8;
+              }else if(modeCmd == "Weather+Clock"){
+                ledMode = 9;
               }else if(modeCmd == "Off"){
                 ledMode = 0;
               }else{
@@ -175,22 +182,24 @@ void loop()
 
           client.println("<div align='left'>");
           client.println("<h2>Select a mode:</h2>");
-          client.println("<form action='/' method='POST'>");
+          client.println("Static Color, Spin, Spin Bounce, and Theater Chase require a color selection.");
+          client.println("<p><form action='/' method='POST'>");
           client.println("<input list='modes' name='mode'>");
           client.println("<datalist id='modes'>");
           client.println("<option value='Static Color'>");
           client.println("<option value='Slow Rainbow'>");
           client.println("<option value='Pulse'>");
+          client.println("<option value='Spin'>");
           client.println("<option value='Spin Bounce'>");
           client.println("<option value='Theater Chase'>");
           client.println("<option value='Rainbow Theater Chase'>");
           client.println("<option value='Random Animations'>");
           client.println("<option value='Weather Clock'>");
           client.println("<option value='Off'>");
-          client.println("</datalist>");
+          client.println("</datalist><br>");
           client.println("Pick a color: <input type='color' name='customColor'>");
           client.println("<input type='submit'>");
-          client.println("</form>");
+          client.println("</form></p>");
           client.println("</div>");
           client.println("<div align='center'>");
           client.println("<h2>Live Camera</h2>");
@@ -213,9 +222,10 @@ void loop()
   //Static Color
   if(ledMode == 1){
     for(int i = 0; i < (leds.numPixels() - 26); i++){
-    leds.setPixel(i, colorCmd);
+      leds.setPixel(i, colorCmd);
     }
     
+    leds.show();
     leds.show();
   }
   
@@ -223,129 +233,148 @@ void loop()
   else if(ledMode == 2){
     static int color;
     
-    if(currentMillis - previousMillis > rainbowInterval){
-      previousMillis = currentMillis;
+    if(millis1 - prevMillis1 > rainbowInterval){
+      prevMillis1 = millis1;
         
       for(int x = 0; x < (leds.numPixels() - 26); x++){
         int index = (color + x) % 180;
         leds.setPixel(x, rainbowColors[index]);
       }
         
-      if(color < 178){
-        color += 1;
-      }else{
-        color = 0;
-      }
+      if(color < 178){color++;}else{color = 0;}
     }
     
     leds.show();
-    leds.show();
+    while(leds.busy()){
+    }
   }
   
   //Pulse
   else if(ledMode == 3){
     static int i;
     
-    if(currentMillis - previousMillis > pulseInterval){
-      previousMillis = currentMillis;
+    if(millis1 - prevMillis1 > pulseInterval){
+      prevMillis1 = millis1;
       
       for(int j = 0; j < (leds.numPixels() - 26); j++){
         leds.setPixel(j, fadeVals[i]);
       }
       
-      if(i < 90){
-        i += 1;
-      }else{
-        i = 0;
-      }
+      if(i < 90){i++;}else{i = 0;}
     }
     
     leds.show();
+    while(leds.busy()){
+    }
+  }
+  
+  //Spin
+  else if(ledMode == 4){
+    static int i;
+    
+    for(int j = 0; j < 30; j++){
+        if((i + j) > 333){
+          leds.setPixel(((334 - (i+j)) * -1), colorCmd);
+        }
+        leds.setPixel(i + j, colorCmd);
+      }
+      
     leds.show();
+      
+    if(millis1 - prevMillis1 > spinInterval){
+      prevMillis1 = millis1;
+      
+      leds.setPixel(i - 1, 0);
+      leds.show();
+      
+      if(i < 334){i++;}else{i = 0;}
+    }
   }
   
   //Spin Bounce
-  else if(ledMode == 4){
-    int color, x, dir;
+  else if(ledMode == 5){
+    static int dir, i;
     
-    for(color = 0; color < 180; color++){
-      if(dir == 0){
-        for(x = 0; x < (leds.numPixels() - 56); x++){
-          int index = (color + x) % 180;
-          for(int i = 0; i < 30; i++){
-            leds.setPixel(x + i, rainbowColors[index]);
-          }
-          leds.show();
-        
-          delay(10);
-        
-          for(int i = 0; i < 30; i++){
-            leds.setPixel(x + i, 0x000000);
-          }
-          leds.show();
-        }
-      }else{
-        for(x = (leds.numPixels() - 56); x >= 0; x--){
-          int index = (color + x) % 180;
-          for(int i = 0; i < 30; i++){
-            leds.setPixel(x + i, rainbowColors[index]);
-          }
-          leds.show();
-        
-          delay(10);
-        
-          for(int i = 0; i < 30; i++){
-            leds.setPixel(x + i, 0x000000);
-          }
-          leds.show();
-        }
+    if(dir == 0){
+      for(int j = 0; j < 30; j++){
+        leds.setPixel(i + j, colorCmd);
       }
       
-      dir = !dir;
+      leds.show();
+      
+      if(millis1 - prevMillis1 > spinInterval){
+        prevMillis1 = millis1;
+      
+        leds.setPixel(i - 1, 0);
+        leds.show();
+      
+        if(i <= 303){i++;}else{i = 333; dir = !dir;}
+      }
+    }else{
+      for(int j = 0; j < 30; j++){
+        leds.setPixel(i - j, colorCmd);
+      }
+      
+      leds.show();
+      
+      if(millis1 - prevMillis1 > spinInterval){
+        prevMillis1 = millis1;
+      
+        if(i > 29){i--;}else{i = 0; dir = !dir;}
+      
+        leds.setPixel(i + 1, 0);
+        leds.show();
+      }
     }
   }
   
   //Theater Chase
-  else if(ledMode == 5){
-    for (int q=0; q < 3; q++){
-      for (int i=0; i < (leds.numPixels() - 26); i=i+3){
-        leds.setPixel(i+q, 0xFFFF00);    //turn every third pixel on
+  else if(ledMode == 6){
+    static int j;
+    
+    if(millis1 - prevMillis1 > chaseInterval){
+      prevMillis1 = millis1;
+      
+      for(int i=0; i < (leds.numPixels() - 26); i=i+3){
+        leds.setPixel(i+j, colorCmd);
       }
         
       leds.show();
+      leds.show();
      
-      delay(50);
-     
-      for (int i=0; i < (leds.numPixels() - 26); i=i+3){
-        leds.setPixel(i+q, 0);        //turn every third pixel off
+      for(int i=0; i < (leds.numPixels() - 26); i=i+3){
+        leds.setPixel(i+j, 0);
       }
+      
+      if(j < 2){j++;}else{j = 0;}
     }
   }
   
   //Rainbow Theater Chase
-  else if(ledMode == 6){
-    int color;
+  else if(ledMode == 7){
+    static int color, j;
     
-    for(color = 0; color < 180; color++){
-      for (int q=0; q < 3; q++){
-        for (int i=0; i < (leds.numPixels() - 26); i=i+3){
-          int index = (color + i) % 180;
-          leds.setPixel(i+q, rainbowColors[index]);    //turn every third pixel on
-        }
-        
-        leds.show();
-     
-        delay(50);
-     
-        for (int i=0; i < (leds.numPixels() - 26); i=i+3){
-          leds.setPixel(i+q, 0);        //turn every third pixel off
-        }
+    if(millis1 - prevMillis1 > chaseInterval){
+      prevMillis1 = millis1;
+      
+      for(int i=0; i < (leds.numPixels() - 26); i=i+3){
+        int index = (color + i) % 180;
+        leds.setPixel(i+j, rainbowColors[index]);
       }
+        
+      leds.show();
+     
+      for(int i=0; i < (leds.numPixels() - 26); i=i+3){
+        leds.setPixel(i+j, 0);
+      }
+        
+      if(color < 178){color++;}else{color = 0;}
+      if(j < 2){j++;}else{j = 0;}
     }
   }
   
   //Random Animations
-  else if(ledMode == 7){
+  else if(ledMode == 8){
     for(int i = 0; i < (leds.numPixels() - 26); i++){
       leds.setPixel(i, 0x333333);
     }
@@ -354,19 +383,23 @@ void loop()
   }
   
   //Weather clock
-  else if(ledMode == 8){
+  else if(ledMode == 9){
     for(int i = 0; i < (leds.numPixels() - 26); i++){
       leds.setPixel(i, 0x010101);
     }
     
     leds.show();
+    while(leds.busy()){
+    }
   }
   
+  //ledMode not valid or zero, so turn off
   else{
     for(int i = 0; i < (leds.numPixels() - 26); i++){
       leds.setPixel(i, 0x000000);
     }
     
+    leds.setPixel(333, 0x010101);
     leds.show();
   }
 }
