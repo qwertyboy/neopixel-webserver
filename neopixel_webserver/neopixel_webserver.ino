@@ -31,9 +31,12 @@ EthernetServer server(80);
 char cmdBuffer[129];
 String cmd = "";
 String modeCmd = "";
-String colorStr = "";
-char colorStrBuf[7];
-int colorCmd = 0;
+String color1Str = "";
+String color2Str = "";
+char color1StrBuf[7];
+char color2StrBuf[7];
+int color1Cmd = 0;
+int color2Cmd = 0;
 
 const int ledsPerStrip = 45;
 DMAMEM int displayMemory[ledsPerStrip * 6];
@@ -49,10 +52,13 @@ unsigned long prevMillis2 = 0;
 int rainbowInterval = 56;
 int pulseInterval = 50;
 int spinInterval = 10;
+int spinInterval2 = 15;
 int chaseInterval = 50;
 int sparkleInterval = 1300;  //Tune this to get the desired update speed for sparkle effect (1300 default)
 
 int ledMode = 0;
+int lastMode = 0;
+int randPos[100];
 int rainbowColors[] = {16711680, 16713728, 16716032, 16718080, 16720384, 16722432, 16724736, 16726784, 16729088, 16731136, 16733440,
                        16735488, 16737792, 16739840, 16742144, 16744192, 16746496, 16748544, 16750848, 16752896, 16755200, 16757248,
                        16759552, 16761600, 16763904, 16765952, 16768256, 16770304, 16772608, 16774656, 16776960, 16187136, 15662848,
@@ -84,6 +90,10 @@ void setup()
   Serial.begin(57600);
   leds.begin();
   leds.show();
+  
+  for(int i = 0; i < 100; i++){
+    randPos[i] = random(333);
+  }
   
   delay(2000);
   
@@ -122,18 +132,22 @@ void loop()
         memset(buffer, 0, 9);
         
         if(client.readBytesUntil('/', buffer, 9)){
-          Serial.println(buffer);
+          Serial.printf("\n\nbuffer:\t\t%s\n", buffer);
           
           if(strcmp(buffer,"POST ") == 0){
             client.find("\n\r");
             
             while(client.findUntil("mode=", "\n\r")){
               memset(cmdBuffer, 0, 129);
-              memset(colorStrBuf, 0, 7);
+              memset(color1StrBuf, 0, 7);
+              memset(color2StrBuf, 0, 7);
+              
               cmd = "";
               modeCmd = "";
-              colorStr = "";
-              colorCmd = 0;
+              color1Str = "";
+              color2Str = "";
+              color1Cmd = 0;
+              color2Cmd = 0;
               
               byte bytesRead = client.readBytesUntil('\n\r', cmdBuffer, 129);
               
@@ -142,67 +156,79 @@ void loop()
               }
               
               modeCmd = cmd.substring(0, cmd.indexOf('&'));
-              colorStr = cmd.substring(cmd.indexOf('%23') + 1);
-              colorStr.toCharArray(colorStrBuf, 7);
-              colorCmd = strtol(colorStrBuf, NULL, 16);
               
-              Serial.println(bytesRead);
-              //Serial.println(cmdBuffer);
-              Serial.println(modeCmd);
-              Serial.println(colorCmd);
+              color1Str = cmd.substring((cmd.indexOf("r=%23") + 5), cmd.indexOf("&customColor2"));
+              color2Str = cmd.substring(cmd.indexOf("2=%23") + 5);
               
-              if(modeCmd == "Static+Color"){
+              color1Str.toCharArray(color1StrBuf, 7);
+              color2Str.toCharArray(color2StrBuf, 7);
+              
+              color1Cmd = strtol(color1StrBuf, NULL, 16);
+              color2Cmd = strtol(color2StrBuf, NULL, 16);
+              
+              Serial.printf("bytesRead:\t%d\n", bytesRead);
+              Serial.println("cmd:\t\t" + cmd);
+              Serial.println("modeCmd:\t" + modeCmd);
+              //Serial.println("color1Str:\t" + color1Str);
+              //Serial.println("color2Str:\t" + color2Str);
+              Serial.printf("color1Cmd:\t%d\n", color1Cmd);
+              Serial.printf("color2cmd:\t%d\n", color2Cmd);
+              
+              if(modeCmd == "staticColor"){
                 ledMode = 1;
-              }else if(modeCmd == "Slow+Rainbow"){
+              }else if(modeCmd == "slowRainbow"){
                 ledMode = 2;
-              }else if(modeCmd == "Pulse"){
+              }else if(modeCmd == "pulse"){
                 ledMode = 3;
-              }else if(modeCmd == "Spin"){
+              }else if(modeCmd == "spin"){
                 ledMode = 4;
-              }else if(modeCmd == "Spin+Bounce"){
+              }else if(modeCmd == "spinBounce"){
                 ledMode = 5;
-              }else if(modeCmd == "Theater+Chase"){
+              }else if(modeCmd == "doubleSpin"){
                 ledMode = 6;
-              }else if(modeCmd == "Rainbow+Theater+Chase"){
+              }else if(modeCmd == "theaterChase"){
                 ledMode = 7;
-              }else if(modeCmd == "Sparkle"){
+              }else if(modeCmd == "rainbowChase"){
                 ledMode = 8;
-              }else if(modeCmd == "Random+Animations"){
+              }else if(modeCmd == "sparkle"){
                 ledMode = 9;
-              }else if(modeCmd == "Weather+Clock"){
+              }else if(modeCmd == "random"){
                 ledMode = 10;
-              }else if(modeCmd == "Off"){
+              }else if(modeCmd == "weatherClock"){
+                ledMode = 11;
+              }else if(modeCmd == "off"){
                 ledMode = 0;
               }else{
                 ledMode = -1;
               }
               
-              Serial.println(ledMode);
+              Serial.printf("ledMode:\t%d\n", ledMode);
             }
           }
           sendHeader(client,"LED Control Panel");
 
           client.println("<div align='left'>");
           client.println("<h3>Select a mode:</h3>");
-          client.println("Static Color, Spin, Spin Bounce, Theater Chase, and Sparkle require a color selection.");
-          client.println("<p><form action='/' method='POST'>");
-          client.println("<input list='modes' name='mode'>");
-          client.println("<datalist id='modes'>");
-          client.println("<option value='Static Color'>");
-          client.println("<option value='Slow Rainbow'>");
-          client.println("<option value='Pulse'>");
-          client.println("<option value='Spin'>");
-          client.println("<option value='Spin Bounce'>");
-          client.println("<option value='Theater Chase'>");
-          client.println("<option value='Rainbow Theater Chase'>");
-          client.println("<option value='Sparkle'>");
-          client.println("<option value='Random Animations'>");
-          client.println("<option value='Weather Clock'>");
-          client.println("<option value='Off'>");
-          client.println("</datalist>");
-          client.println("Pick a color: <input type='color' name='customColor'><br>");
+          //client.println("Static Color, Spin, Spin Bounce, Theater Chase, and Sparkle require a color selection.");
+          client.println("<form action='/' method='POST'>");
+          client.println("<select name='mode'>");
+          client.println("<option value='staticColor'>Static Color (Requires color selection)</option>");
+          client.println("<option value='slowRainbow'>Slow Rainbow</option>");
+          client.println("<option value='pulse'>Pulse</option>");
+          client.println("<option value='spin'>Spin (Requires color selection)</option>");
+          client.println("<option value='spinBounce'>Spin Bounce (Requires color selection)</option>");
+          client.println("<option value='doubleSpin'>Double Spin (Requires 2 color selections)</option>");
+          client.println("<option value='theaterChase'>Theater Chase (Requires color selection)</option>");
+          client.println("<option value='rainbowChase'>Rainbow Theater Chase</option>");
+          client.println("<option value='sparkle'>Thparkle (Requires color selection)</option>");
+          client.println("<option value='random'>Random Animations</option>");
+          client.println("<option value='weatherClock'>Weather Clock</option>");
+          client.println("<option value='off'>Off</option>");
+          client.println("</select><br>");
+          client.println("Color 1: <input type='color' name='customColor'>");
+          client.println("Color 2: <input type='color' name='customColor2'>");
           client.println("<input type='submit'>");
-          client.println("</form></p>");
+          client.println("</form>");
           client.println("</div>");
           client.println("<div align='center'>");
           client.println("<h2>Live Camera</h2>");
@@ -224,18 +250,46 @@ void loop()
 
   //Static Color
   if(ledMode == 1){
+    static int cleared;
+    
+    for(int i = 0; i < 334; i++){
+      if(leds.getPixel(i) != color1Cmd){
+        cleared = 0;
+      }
+    }
+    
+    if((!cleared) || (lastMode != 1)){
+      for(int i = 0; i < (leds.numPixels() - 26); i++){
+        leds.setPixel(i, 0);
+      }
+      
+      leds.show();
+      cleared = 1;
+      Serial.println("Cleared LEDs");
+    }
+    
     for(int i = 0; i < (leds.numPixels() - 26); i++){
-      leds.setPixel(i, colorCmd);
+      leds.setPixel(i, color1Cmd);
     }
      
-    if(!leds.busy()){
-      leds.show();
-    }
+    leds.show();
+    leds.show();
+    
+    lastMode = 1;
   }
   
   //Rainbow Mode
   else if(ledMode == 2){
     static int color;
+    
+    if(lastMode != 2){
+      for(int i = 0; i < (leds.numPixels() - 26); i++){
+        leds.setPixel(i, 0);
+      }
+      
+      leds.show();
+      Serial.println("Cleared LEDs");
+    }
     
     if(millis1 - prevMillis1 > rainbowInterval){
       prevMillis1 = millis1;
@@ -248,39 +302,59 @@ void loop()
       if(color < 178){color++;}else{color = 0;}
     }
     
-    if(!leds.busy()){
-      leds.show();
-    }
+    leds.show();
+    leds.show();
+    
+    lastMode = 2;
   }
   
   //Pulse
   else if(ledMode == 3){
-    static int i;
+    static int index;
+    
+    if(lastMode != 3){
+      for(int i = 0; i < (leds.numPixels() - 26); i++){
+        leds.setPixel(i, 0);
+      }
+      
+      leds.show();
+      Serial.println("Cleared LEDs");
+    }
     
     if(millis1 - prevMillis1 > pulseInterval){
       prevMillis1 = millis1;
       
       for(int j = 0; j < (leds.numPixels() - 26); j++){
-        leds.setPixel(j, fadeVals[i] & random(0xFFFFFF) );
+        leds.setPixel(j, fadeVals[index] & random(0xFFFFFF));
       }
       
-      if(i < 90){i++;}else{i = 0;}
+      if(index < 90){index++;}else{index = 0;}
     }
     
-    if(!leds.busy()){
-      leds.show();
-    }
+    leds.show();
+    leds.show();
+    
+    lastMode = 3;
   }
   
   //Spin
   else if(ledMode == 4){
-    static int i;
+    static int pos;
     
-    for(int j = 0; j < 30; j++){
-        if((i + j) > 333){
-          leds.setPixel(((334 - (i+j)) * -1), colorCmd);
+    if(lastMode != 4){
+      for(int i = 0; i < (leds.numPixels() - 26); i++){
+        leds.setPixel(i, 0);
+      }
+      
+      leds.show();
+      Serial.println("Cleared LEDs");
+    }
+    
+    for(int i = 0; i < 30; i++){
+        if((pos + i) > 333){
+          leds.setPixel(((334 - (pos+i)) * -1), color1Cmd);
         }
-        leds.setPixel(i + j, colorCmd);
+        leds.setPixel(pos + i, color1Cmd);
       }
       
     leds.show();
@@ -288,20 +362,31 @@ void loop()
     if(millis1 - prevMillis1 > spinInterval){
       prevMillis1 = millis1;
       
-      leds.setPixel(i - 1, 0);
+      leds.setPixel(pos - 1, 0);
       leds.show();
       
-      if(i < 334){i++;}else{i = 0;}
+      if(pos < 334){pos++;}else{pos = 0;}
     }
+    
+    lastMode = 4;
   }
   
   //Spin Bounce
   else if(ledMode == 5){
-    static int dir, i;
+    static int dir, pos;
+    
+    if(lastMode != 5){
+      for(int i = 0; i < (leds.numPixels() - 26); i++){
+        leds.setPixel(i, 0);
+      }
+      
+      leds.show();
+      Serial.println("Cleared LEDs");
+    }
     
     if(dir == 0){
-      for(int j = 0; j < 30; j++){
-        leds.setPixel(i + j, colorCmd);
+      for(int i = 0; i < 30; i++){
+        leds.setPixel(pos + i, color1Cmd);
       }
       
       leds.show();
@@ -309,14 +394,14 @@ void loop()
       if(millis1 - prevMillis1 > spinInterval){
         prevMillis1 = millis1;
       
-        leds.setPixel(i - 1, 0);
+        leds.setPixel(pos - 1, 0);
         leds.show();
       
-        if(i <= 303){i++;}else{i = 333; dir = !dir;}
+        if(pos <= 303){pos++;}else{pos = 333; dir = !dir;}
       }
     }else{
-      for(int j = 0; j < 30; j++){
-        leds.setPixel(i - j, colorCmd);
+      for(int i = 0; i < 30; i++){
+        leds.setPixel(pos - i, color1Cmd);
       }
       
       leds.show();
@@ -324,23 +409,92 @@ void loop()
       if(millis1 - prevMillis1 > spinInterval){
         prevMillis1 = millis1;
       
-        if(i > 29){i--;}else{i = 0; dir = !dir;}
+        if(pos > 29){pos--;}else{pos = 0; dir = !dir;}
       
-        leds.setPixel(i + 1, 0);
+        leds.setPixel(pos + 1, 0);
         leds.show();
       }
     }
+    
+    lastMode = 5;
+  }
+  
+  //Double Spin
+  else if(ledMode == 6){
+    static int pos1 = randPos[79];
+    static int pos2 = randPos[54];
+    
+    if(lastMode != 6){
+      for(int i = 0; i < (leds.numPixels() - 26); i++){
+        leds.setPixel(i, 0);
+      }
+      
+      leds.show();
+      Serial.println("Cleared LEDs");
+    }
+    
+    //------------------ Segment 1 ------------------
+    for(int i = 0; i < 30; i++){
+        if((pos1 + i) > 333){
+          leds.setPixel(((334 - (pos1+i)) * -1), color1Cmd);
+        }
+        leds.setPixel(pos1 + i, color1Cmd);
+      }
+      
+    leds.show();
+      
+    if(millis1 - prevMillis1 > spinInterval){
+      prevMillis1 = millis1;
+      
+      leds.setPixel(pos1 - 1, 0);
+      leds.show();
+      
+      if(pos1 < 334){pos1++;}else{pos1 = 0;}
+      
+      Serial.printf("%d\t%d\n", pos1, pos2);
+    }
+    
+    //------------------ Segment 2 ------------------
+    for(int i = 29; i > 0; i--){
+      if((pos2 - i) < 0){
+        leds.setPixel((334 + (pos2 - i)), color2Cmd);
+      }else{
+        leds.setPixel(pos2 - i, color2Cmd);
+      }
+    }
+      
+    leds.show();
+      
+    if(millis2 - prevMillis2 > spinInterval2){
+      prevMillis2 = millis2;
+      
+      if(pos2 > -1){pos2--;}else{pos2 = 333;}
+      
+      leds.setPixel(pos2 + 1, 0);
+      leds.show();
+    }
+    
+    lastMode = 6;
   }
   
   //Theater Chase
-  else if(ledMode == 6){
+  else if(ledMode == 7){
     static int j;
+    
+    if(lastMode != 7){
+      for(int i = 0; i < (leds.numPixels() - 26); i++){
+        leds.setPixel(i, 0);
+      }
+      
+      leds.show();
+      Serial.println("Cleared LEDs");
+    }
     
     if(millis1 - prevMillis1 > chaseInterval){
       prevMillis1 = millis1;
       
       for(int i=0; i < (leds.numPixels() - 26); i=i+3){
-        leds.setPixel(i+j, colorCmd);
+        leds.setPixel(i+j, color1Cmd);
       }
         
       leds.show();
@@ -351,11 +505,22 @@ void loop()
       
       if(j < 2){j++;}else{j = 0;}
     }
+    
+    lastMode = 7;
   }
   
   //Rainbow Theater Chase
-  else if(ledMode == 7){
+  else if(ledMode == 8){
     static int color, j;
+    
+    if(lastMode != 8){
+      for(int i = 0; i < (leds.numPixels() - 26); i++){
+        leds.setPixel(i, 0);
+      }
+      
+      leds.show();
+      Serial.println("Cleared LEDs");
+    }
     
     if(millis1 - prevMillis1 > chaseInterval){
       prevMillis1 = millis1;
@@ -374,13 +539,24 @@ void loop()
       if(color < 178){color++;}else{color = 0;}
       if(j < 2){j++;}else{j = 0;}
     }
+    
+    lastMode = 8;
   }
   
   //Sparkle
-  else if(ledMode == 8){
-    int blueOct = colorCmd & 0x0000FF;
-    int greenOct = (colorCmd & 0x00FF00) >> 8;
-    int redOct = (colorCmd & 0xFF0000) >> 16;
+  else if(ledMode == 9){
+    if(lastMode != 9){
+      for(int i = 0; i < (leds.numPixels() - 26); i++){
+        leds.setPixel(i, 0);
+      }
+      
+      leds.show();
+      Serial.println("Cleared LEDs");
+    }
+    
+    int blueOct = color1Cmd & 0x0000FF;
+    int greenOct = (color1Cmd & 0x00FF00) >> 8;
+    int redOct = (color1Cmd & 0xFF0000) >> 16;
     
     for(int i = 0; i < (leds.numPixels() - 26); i++){
       int brightness = 0;
@@ -396,33 +572,58 @@ void loop()
       }
     }
     
-    if(!leds.busy()){
-      leds.show();
-    }
+    leds.show();
+    leds.show();
+    
+    lastMode = 9;
   }
   
   //Random Animations
-  else if(ledMode == 9){
+  else if(ledMode == 10){
+    if(lastMode != 10){
+      for(int i = 0; i < (leds.numPixels() - 26); i++){
+        leds.setPixel(i, 0);
+      }
+      
+      leds.show();
+      Serial.println("Cleared LEDs");
+    }
+    
     for(int i = 0; i < (leds.numPixels() - 26); i++){
       leds.setPixel(i, 0x333333);
     }
     
     leds.show();
+    leds.show();
+    
+    lastMode = 10;
   }
   
   //Weather clock
-  else if(ledMode == 10){
+  else if(ledMode == 11){
+    if(lastMode != 11){
+      for(int i = 0; i < (leds.numPixels() - 26); i++){
+        leds.setPixel(i, 0);
+      }
+      
+      leds.show();
+      Serial.println("Cleared LEDs");
+    }
+    
     for(int i = 0; i < (leds.numPixels() - 26); i++){
       leds.setPixel(i, 0x010101);
     }
     
-    if(!leds.busy()){
-      leds.show();
-    }
+    leds.show();
+    leds.show();
+    
+    lastMode = 11;
   }
   
-  //ledMode not valid or zero, so turn off
+  //ledMode not valid or zero, so turn off all but last one
   else{
+    lastMode = -1;
+    
     for(int i = 0; i < (leds.numPixels() - 26); i++){
       leds.setPixel(i, 0x000000);
     }
