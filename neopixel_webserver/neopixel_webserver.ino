@@ -18,18 +18,19 @@
 
 #define Host_name nathan-ledctrl
 
+//server setup
 byte mac[] = {0x90, 0xA2, 0xDA, 0x00, 0x81, 0x8D};
 byte ip[] = {192, 168, 2, 13};
 int dhcpSuccess = 0;
 int retry = 0;
 int maxRetries = 4;
-
 const int MAX_PAGENAME_LEN = 8; //max characters in page name 
 char buffer[MAX_PAGENAME_LEN+1]; // additional character for terminating null
 EthernetServer server(80);
 
+//html command variables
 char cmdBuffer[129];
-String cmd = "";
+String cmd = ""; 
 String modeCmd = "";
 String color1Str = "";
 String color2Str = "";
@@ -37,18 +38,22 @@ char color1StrBuf[7];
 char color2StrBuf[7];
 int color1Cmd = 0;
 int color2Cmd = 0;
+int colorCombo = 0;
 
+//led setup
 const int ledsPerStrip = 45;
 DMAMEM int displayMemory[ledsPerStrip * 6];
 int drawingMemory[ledsPerStrip * 6];
 const int config = WS2811_GRB | WS2811_800kHz;
 OctoWS2811 leds(ledsPerStrip, displayMemory, drawingMemory, config);
 
+//loop counters for timing effects
 unsigned long millis1 = 0;
 unsigned long millis2 = 0;
 unsigned long prevMillis1 = 0;
 unsigned long prevMillis2 = 0;
 
+//effect update intervals
 int rainbowInterval = 56;
 int pulseInterval = 50;
 int spinInterval = 10;
@@ -56,6 +61,7 @@ int spinInterval2 = 15;
 int chaseInterval = 50;
 int sparkleInterval = 1300;  //Tune this to get the desired update speed for sparkle effect (1300 default)
 
+//effect modes and color arrays
 int ledMode = 0;
 int lastMode = 0;
 int randPos[100];
@@ -91,12 +97,14 @@ void setup()
   leds.begin();
   leds.show();
   
+  //generate random starting positions
   for(int i = 0; i < 100; i++){
     randPos[i] = random(333);
   }
   
   delay(2000);
   
+  //get ip address and start server
   dhcpSuccess = Ethernet.begin(mac);
   while(dhcpSuccess == 0){
     retry += 1;
@@ -125,6 +133,7 @@ void loop()
   millis1 = millis();
   millis2 = millis();
   
+  //handle http request
   EthernetClient client = server.available();
   if(client){
     while (client.connected()){
@@ -134,10 +143,12 @@ void loop()
         if(client.readBytesUntil('/', buffer, 9)){
           Serial.printf("\n\nbuffer:\t\t%s\n", buffer);
           
+          //if response is of type POST
           if(strcmp(buffer,"POST ") == 0){
             client.find("\n\r");
             
             while(client.findUntil("mode=", "\n\r")){
+              //clear the buffers and command strings
               memset(cmdBuffer, 0, 129);
               memset(color1StrBuf, 0, 7);
               memset(color2StrBuf, 0, 7);
@@ -151,12 +162,14 @@ void loop()
               
               byte bytesRead = client.readBytesUntil('\n\r', cmdBuffer, 129);
               
+              //put the command buffer into a string
               for(int i = 0; i < bytesRead; i++){
                 cmd = cmd + cmdBuffer[i];
               }
               
               modeCmd = cmd.substring(0, cmd.indexOf('&'));
               
+              //get the string for each color and convert to a number
               color1Str = cmd.substring((cmd.indexOf("r=%23") + 5), cmd.indexOf("&customColor2"));
               color2Str = cmd.substring(cmd.indexOf("2=%23") + 5);
               
@@ -165,6 +178,7 @@ void loop()
               
               color1Cmd = strtol(color1StrBuf, NULL, 16);
               color2Cmd = strtol(color2StrBuf, NULL, 16);
+              colorCombo = addColors(color1Cmd, color2Cmd);
               
               Serial.printf("bytesRead:\t%d\n", bytesRead);
               Serial.println("cmd:\t\t" + cmd);
@@ -174,6 +188,7 @@ void loop()
               Serial.printf("color1Cmd:\t%d\n", color1Cmd);
               Serial.printf("color2cmd:\t%d\n", color2Cmd);
               
+              //pick effect mode
               if(modeCmd == "staticColor"){
                 ledMode = 1;
               }else if(modeCmd == "slowRainbow"){
@@ -205,6 +220,8 @@ void loop()
               Serial.printf("ledMode:\t%d\n", ledMode);
             }
           }
+          
+          //send html for control page
           sendHeader(client,"LED Control Panel");
 
           client.println("<div align='left'>");
@@ -252,6 +269,7 @@ void loop()
   if(ledMode == 1){
     static int cleared;
     
+    //clear leds if not all the same or changing modes
     for(int i = 0; i < 334; i++){
       if(leds.getPixel(i) != color1Cmd){
         cleared = 0;
@@ -268,6 +286,7 @@ void loop()
       Serial.println("Cleared LEDs");
     }
     
+    //set all leds to the new color
     for(int i = 0; i < (leds.numPixels() - 26); i++){
       leds.setPixel(i, color1Cmd);
     }
@@ -282,6 +301,7 @@ void loop()
   else if(ledMode == 2){
     static int color;
     
+    //clear leds if coming from different mode
     if(lastMode != 2){
       for(int i = 0; i < (leds.numPixels() - 26); i++){
         leds.setPixel(i, 0);
@@ -293,7 +313,8 @@ void loop()
     
     if(millis1 - prevMillis1 > rainbowInterval){
       prevMillis1 = millis1;
-        
+      
+      //every update, get a new value from the table  
       for(int x = 0; x < (leds.numPixels() - 26); x++){
         int index = (color + x) % 180;
         leds.setPixel(x, rainbowColors[index]);
@@ -312,6 +333,7 @@ void loop()
   else if(ledMode == 3){
     static int index;
     
+    //clear leds if coming from different mode
     if(lastMode != 3){
       for(int i = 0; i < (leds.numPixels() - 26); i++){
         leds.setPixel(i, 0);
@@ -324,6 +346,7 @@ void loop()
     if(millis1 - prevMillis1 > pulseInterval){
       prevMillis1 = millis1;
       
+      //every update, set a pixel to a random value and fade them
       for(int j = 0; j < (leds.numPixels() - 26); j++){
         leds.setPixel(j, fadeVals[index] & random(0xFFFFFF));
       }
@@ -341,6 +364,7 @@ void loop()
   else if(ledMode == 4){
     static int pos;
     
+    //clear leds if coming from different mode
     if(lastMode != 4){
       for(int i = 0; i < (leds.numPixels() - 26); i++){
         leds.setPixel(i, 0);
@@ -421,9 +445,12 @@ void loop()
   
   //Double Spin
   else if(ledMode == 6){
-    static int pos1 = randPos[79];
-    static int pos2 = randPos[54];
+    static int pos1 = randPos[77];
+    static int pos2 = randPos[32];
+    static int segment1[30], segment2[30];
+    static int index1, index2;
     
+    //clear leds if coming from different mode
     if(lastMode != 6){
       for(int i = 0; i < (leds.numPixels() - 26); i++){
         leds.setPixel(i, 0);
@@ -433,47 +460,53 @@ void loop()
       Serial.println("Cleared LEDs");
     }
     
-    //------------------ Segment 1 ------------------
+    //calculate the position of each led and its respecitve segment
     for(int i = 0; i < 30; i++){
-        if((pos1 + i) > 333){
-          leds.setPixel(((334 - (pos1+i)) * -1), color1Cmd);
-        }
-        leds.setPixel(pos1 + i, color1Cmd);
+      //if the position is greater than end, start at beginning
+      if((pos1 + i) > 333){
+        segment1[i] = (334 - (pos1 + i)) * -1;
+      }else{
+        segment1[i] = pos1 + i;
       }
       
-    leds.show();
+      //if the position is less that the beginning, start at the end
+      if(((333 - i) - pos2) < 0){
+        segment2[i] = ((333 - i) - pos2) + 334;
+      }else{
+        segment2[i] = (333 - i) - pos2;
+      }
       
+      leds.setPixel(segment1[i], color1Cmd);
+      leds.setPixel(segment2[i], color2Cmd);
+    }
+    
+    leds.show();
+    
+    //update segment 1
     if(millis1 - prevMillis1 > spinInterval){
       prevMillis1 = millis1;
       
-      leds.setPixel(pos1 - 1, 0);
+      //remove the end of the segment
+      segment1[index1] = pos1 - 1;
+      leds.setPixel(segment1[index1], 0);      
       leds.show();
       
       if(pos1 < 334){pos1++;}else{pos1 = 0;}
-      
-      Serial.printf("%d\t%d\n", pos1, pos2);
+      if(index1 < 28){index1++;}else{index1 = 0;}
     }
     
-    //------------------ Segment 2 ------------------
-    for(int i = 29; i > 0; i--){
-      if((pos2 - i) < 0){
-        leds.setPixel((334 + (pos2 - i)), color2Cmd);
-      }else{
-        leds.setPixel(pos2 - i, color2Cmd);
-      }
-    }
-      
-    leds.show();
-      
+    //update segment 2
     if(millis2 - prevMillis2 > spinInterval2){
       prevMillis2 = millis2;
       
-      if(pos2 > -1){pos2--;}else{pos2 = 333;}
-      
-      leds.setPixel(pos2 + 1, 0);
+      //remove the end of the segment
+      segment2[index2] = 334 - pos2;
+      leds.setPixel(segment2[index2], 0);      
       leds.show();
+      
+      if(pos2 < 334){pos2++;}else{pos2 = 0;}
+      if(index2 < 28){index2++;}else{index2 = 0;}
     }
-    
     lastMode = 6;
   }
   
@@ -481,6 +514,7 @@ void loop()
   else if(ledMode == 7){
     static int j;
     
+    //clear leds if changing modes
     if(lastMode != 7){
       for(int i = 0; i < (leds.numPixels() - 26); i++){
         leds.setPixel(i, 0);
@@ -493,12 +527,14 @@ void loop()
     if(millis1 - prevMillis1 > chaseInterval){
       prevMillis1 = millis1;
       
+      //set every third pixel
       for(int i=0; i < (leds.numPixels() - 26); i=i+3){
         leds.setPixel(i+j, color1Cmd);
       }
         
       leds.show();
-     
+      
+      //clear every third pixel
       for(int i=0; i < (leds.numPixels() - 26); i=i+3){
         leds.setPixel(i+j, 0);
       }
@@ -513,6 +549,7 @@ void loop()
   else if(ledMode == 8){
     static int color, j;
     
+    //clear leds if changing modes
     if(lastMode != 8){
       for(int i = 0; i < (leds.numPixels() - 26); i++){
         leds.setPixel(i, 0);
@@ -525,13 +562,15 @@ void loop()
     if(millis1 - prevMillis1 > chaseInterval){
       prevMillis1 = millis1;
       
+      //set every third pixel with a rainbow color
       for(int i=0; i < (leds.numPixels() - 26); i=i+3){
         int index = (color + i) % 180;
         leds.setPixel(i+j, rainbowColors[index]);
       }
         
       leds.show();
-     
+      
+      //clear every third pixel
       for(int i=0; i < (leds.numPixels() - 26); i=i+3){
         leds.setPixel(i+j, 0);
       }
@@ -545,6 +584,7 @@ void loop()
   
   //Sparkle
   else if(ledMode == 9){
+    //clear leds if changing modes
     if(lastMode != 9){
       for(int i = 0; i < (leds.numPixels() - 26); i++){
         leds.setPixel(i, 0);
@@ -554,6 +594,7 @@ void loop()
       Serial.println("Cleared LEDs");
     }
     
+    //get the component of the color
     int blueOct = color1Cmd & 0x0000FF;
     int greenOct = (color1Cmd & 0x00FF00) >> 8;
     int redOct = (color1Cmd & 0xFF0000) >> 16;
@@ -563,12 +604,13 @@ void loop()
       int rand = random(0xFF);
       rand = (rand * rand) / 0xFF;
       
+      //get a random brightness and pass it to the color component
       brightness += rand * blueOct / 0xFF;
       brightness += (rand * greenOct / 0xFF) << 8;
       brightness += (rand * redOct / 0xFF) << 16;
       
       if(!random(sparkleInterval)){
-      leds.setPixel(i, brightness);
+        leds.setPixel(i, brightness);
       }
     }
     
@@ -629,16 +671,39 @@ void loop()
     }
     
     leds.setPixel(333, 0x010101);
-    leds.show();
+    //leds.show();
   }
 }
 
+//send a standard http response header
 void sendHeader(EthernetClient client, char *title){
-  // send a standard http response header
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/html");
   client.println();
   client.print("<html><head><title>");
   client.print(title);
   client.println("</title><body>");
-}   
+}
+
+//function to add colors
+int addColors(int color1, int color2){
+  int color1Red = color1 & 0xFF0000;
+  int color1Green = color1 & 0x00FF00;
+  int color1Blue = color1 & 0x0000FF;
+  
+  int color2Red = color2 & 0xFF0000;
+  int color2Green = color2 & 0x00FF00;
+  int color2Blue = color2 & 0x0000FF;
+  
+  int newRed = color1Red + color2Red;
+  int newGreen = color1Green + color2Green;
+  int newBlue = color1Blue + color2Blue;
+  
+  newRed = newRed & 0xFF0000;
+  newGreen = newGreen & 0x00FF00;
+  newBlue = newBlue & 0x0000FF;
+  
+  int result = newRed | newGreen | newBlue;
+  
+  return result;
+}
