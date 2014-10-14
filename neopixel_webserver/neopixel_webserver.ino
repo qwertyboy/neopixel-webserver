@@ -136,8 +136,8 @@ void loop()
   //handle http request
   EthernetClient client = server.available();
   if(client){
-    while (client.connected()){
-      if (client.available()){
+    while(client.connected()){
+      if(client.available()){
         memset(buffer, 0, 9);
         
         if(client.readBytesUntil('/', buffer, 9)){
@@ -159,6 +159,7 @@ void loop()
               color2Str = "";
               color1Cmd = 0;
               color2Cmd = 0;
+              colorCombo = 0;
               
               byte bytesRead = client.readBytesUntil('\n\r', cmdBuffer, 129);
               
@@ -185,8 +186,9 @@ void loop()
               Serial.println("modeCmd:\t" + modeCmd);
               //Serial.println("color1Str:\t" + color1Str);
               //Serial.println("color2Str:\t" + color2Str);
-              Serial.printf("color1Cmd:\t%d\n", color1Cmd);
-              Serial.printf("color2cmd:\t%d\n", color2Cmd);
+              Serial.printf("color1Cmd:\t%x\n", color1Cmd);
+              Serial.printf("color2cmd:\t%x\n", color2Cmd);
+              Serial.printf("colorCombo:\t%x\n", colorCombo);
               
               //pick effect mode
               if(modeCmd == "staticColor"){
@@ -277,7 +279,7 @@ void loop()
     }
     
     if((!cleared) || (lastMode != 1)){
-      for(int i = 0; i < (leds.numPixels() - 26); i++){
+      for(int i = 0; i < 334; i++){
         leds.setPixel(i, 0);
       }
       
@@ -287,7 +289,7 @@ void loop()
     }
     
     //set all leds to the new color
-    for(int i = 0; i < (leds.numPixels() - 26); i++){
+    for(int i = 0; i < 334; i++){
       leds.setPixel(i, color1Cmd);
     }
      
@@ -303,7 +305,7 @@ void loop()
     
     //clear leds if coming from different mode
     if(lastMode != 2){
-      for(int i = 0; i < (leds.numPixels() - 26); i++){
+      for(int i = 0; i < 334; i++){
         leds.setPixel(i, 0);
       }
       
@@ -315,7 +317,7 @@ void loop()
       prevMillis1 = millis1;
       
       //every update, get a new value from the table  
-      for(int x = 0; x < (leds.numPixels() - 26); x++){
+      for(int x = 0; x < 334; x++){
         int index = (color + x) % 180;
         leds.setPixel(x, rainbowColors[index]);
       }
@@ -335,7 +337,7 @@ void loop()
     
     //clear leds if coming from different mode
     if(lastMode != 3){
-      for(int i = 0; i < (leds.numPixels() - 26); i++){
+      for(int i = 0; i < 334; i++){
         leds.setPixel(i, 0);
       }
       
@@ -347,7 +349,7 @@ void loop()
       prevMillis1 = millis1;
       
       //every update, set a pixel to a random value and fade them
-      for(int j = 0; j < (leds.numPixels() - 26); j++){
+      for(int j = 0; j < 334; j++){
         leds.setPixel(j, fadeVals[index] & random(0xFFFFFF));
       }
       
@@ -366,7 +368,7 @@ void loop()
     
     //clear leds if coming from different mode
     if(lastMode != 4){
-      for(int i = 0; i < (leds.numPixels() - 26); i++){
+      for(int i = 0; i < 334; i++){
         leds.setPixel(i, 0);
       }
       
@@ -400,7 +402,7 @@ void loop()
     static int dir, pos;
     
     if(lastMode != 5){
-      for(int i = 0; i < (leds.numPixels() - 26); i++){
+      for(int i = 0; i < 334; i++){
         leds.setPixel(i, 0);
       }
       
@@ -448,11 +450,10 @@ void loop()
     static int pos1 = randPos[77];
     static int pos2 = randPos[32];
     static int segment1[30], segment2[30];
-    static int index1, index2;
     
     //clear leds if coming from different mode
     if(lastMode != 6){
-      for(int i = 0; i < (leds.numPixels() - 26); i++){
+      for(int i = 0; i < 334; i++){
         leds.setPixel(i, 0);
       }
       
@@ -464,20 +465,30 @@ void loop()
     for(int i = 0; i < 30; i++){
       //if the position is greater than end, start at beginning
       if((pos1 + i) > 333){
-        segment1[i] = (334 - (pos1 + i)) * -1;
+        segment1[i] = (pos1 + i) - 334;
       }else{
         segment1[i] = pos1 + i;
       }
       
-      //if the position is less that the beginning, start at the end
-      if(((333 - i) - pos2) < 0){
-        segment2[i] = ((333 - i) - pos2) + 334;
+      //if the position is less than the beginning, start at the end
+      if((pos2 - i) < 0){
+        segment2[i] = (pos2 - i) + 334;
       }else{
-        segment2[i] = (333 - i) - pos2;
+        segment2[i] = pos2 - i;
       }
       
       leds.setPixel(segment1[i], color1Cmd);
       leds.setPixel(segment2[i], color2Cmd);
+    }
+    
+    //look for overlap
+    for(int i = 0; i < 30; i++){
+      for(int j = 0; j < 30; j++){
+        if(segment1[29-i] == segment2[29-j]){
+          leds.setPixel(segment1[29-i], colorCombo);
+          leds.setPixel(segment2[29-i], colorCombo);
+        }
+      }
     }
     
     leds.show();
@@ -486,26 +497,20 @@ void loop()
     if(millis1 - prevMillis1 > spinInterval){
       prevMillis1 = millis1;
       
-      //remove the end of the segment
-      segment1[index1] = pos1 - 1;
-      leds.setPixel(segment1[index1], 0);      
+      leds.setPixel(segment1[0], 0);
       leds.show();
       
-      if(pos1 < 334){pos1++;}else{pos1 = 0;}
-      if(index1 < 28){index1++;}else{index1 = 0;}
+      if(pos1 < 333){pos1++;}else{pos1 = 0;}
     }
     
     //update segment 2
     if(millis2 - prevMillis2 > spinInterval2){
       prevMillis2 = millis2;
       
-      //remove the end of the segment
-      segment2[index2] = 334 - pos2;
-      leds.setPixel(segment2[index2], 0);      
+      leds.setPixel(segment2[0], 0);
       leds.show();
       
-      if(pos2 < 334){pos2++;}else{pos2 = 0;}
-      if(index2 < 28){index2++;}else{index2 = 0;}
+      if(pos2 > 0){pos2--;}else{pos2 = 333;}
     }
     lastMode = 6;
   }
@@ -516,7 +521,7 @@ void loop()
     
     //clear leds if changing modes
     if(lastMode != 7){
-      for(int i = 0; i < (leds.numPixels() - 26); i++){
+      for(int i = 0; i < 334; i++){
         leds.setPixel(i, 0);
       }
       
@@ -528,14 +533,14 @@ void loop()
       prevMillis1 = millis1;
       
       //set every third pixel
-      for(int i=0; i < (leds.numPixels() - 26); i=i+3){
+      for(int i=0; i < 334; i=i+3){
         leds.setPixel(i+j, color1Cmd);
       }
         
       leds.show();
       
       //clear every third pixel
-      for(int i=0; i < (leds.numPixels() - 26); i=i+3){
+      for(int i=0; i < 334; i=i+3){
         leds.setPixel(i+j, 0);
       }
       
@@ -551,7 +556,7 @@ void loop()
     
     //clear leds if changing modes
     if(lastMode != 8){
-      for(int i = 0; i < (leds.numPixels() - 26); i++){
+      for(int i = 0; i < 334; i++){
         leds.setPixel(i, 0);
       }
       
@@ -563,7 +568,7 @@ void loop()
       prevMillis1 = millis1;
       
       //set every third pixel with a rainbow color
-      for(int i=0; i < (leds.numPixels() - 26); i=i+3){
+      for(int i=0; i < 334; i=i+3){
         int index = (color + i) % 180;
         leds.setPixel(i+j, rainbowColors[index]);
       }
@@ -571,7 +576,7 @@ void loop()
       leds.show();
       
       //clear every third pixel
-      for(int i=0; i < (leds.numPixels() - 26); i=i+3){
+      for(int i=0; i < 334; i=i+3){
         leds.setPixel(i+j, 0);
       }
         
@@ -586,7 +591,7 @@ void loop()
   else if(ledMode == 9){
     //clear leds if changing modes
     if(lastMode != 9){
-      for(int i = 0; i < (leds.numPixels() - 26); i++){
+      for(int i = 0; i < 334; i++){
         leds.setPixel(i, 0);
       }
       
@@ -599,7 +604,7 @@ void loop()
     int greenOct = (color1Cmd & 0x00FF00) >> 8;
     int redOct = (color1Cmd & 0xFF0000) >> 16;
     
-    for(int i = 0; i < (leds.numPixels() - 26); i++){
+    for(int i = 0; i < 334; i++){
       int brightness = 0;
       int rand = random(0xFF);
       rand = (rand * rand) / 0xFF;
@@ -623,7 +628,7 @@ void loop()
   //Random Animations
   else if(ledMode == 10){
     if(lastMode != 10){
-      for(int i = 0; i < (leds.numPixels() - 26); i++){
+      for(int i = 0; i < 334; i++){
         leds.setPixel(i, 0);
       }
       
@@ -631,7 +636,7 @@ void loop()
       Serial.println("Cleared LEDs");
     }
     
-    for(int i = 0; i < (leds.numPixels() - 26); i++){
+    for(int i = 0; i < 334; i++){
       leds.setPixel(i, 0x333333);
     }
     
@@ -644,7 +649,7 @@ void loop()
   //Weather clock
   else if(ledMode == 11){
     if(lastMode != 11){
-      for(int i = 0; i < (leds.numPixels() - 26); i++){
+      for(int i = 0; i < 334; i++){
         leds.setPixel(i, 0);
       }
       
@@ -652,7 +657,7 @@ void loop()
       Serial.println("Cleared LEDs");
     }
     
-    for(int i = 0; i < (leds.numPixels() - 26); i++){
+    for(int i = 0; i < 334; i++){
       leds.setPixel(i, 0x010101);
     }
     
@@ -666,7 +671,7 @@ void loop()
   else{
     lastMode = -1;
     
-    for(int i = 0; i < (leds.numPixels() - 26); i++){
+    for(int i = 0; i < 334; i++){
       leds.setPixel(i, 0x000000);
     }
     
@@ -695,9 +700,9 @@ int addColors(int color1, int color2){
   int color2Green = color2 & 0x00FF00;
   int color2Blue = color2 & 0x0000FF;
   
-  int newRed = color1Red + color2Red;
-  int newGreen = color1Green + color2Green;
-  int newBlue = color1Blue + color2Blue;
+  int newRed = (color1Red + color2Red) / 2;
+  int newGreen = (color1Green + color2Green) / 2;
+  int newBlue = (color1Blue + color2Blue) / 2;
   
   newRed = newRed & 0xFF0000;
   newGreen = newGreen & 0x00FF00;
