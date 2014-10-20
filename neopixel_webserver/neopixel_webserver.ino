@@ -81,15 +81,26 @@ int rainbowColors[] = {16711680, 16713728, 16716032, 16718080, 16720384, 1672243
                        16711824, 16711816, 16711807, 16711799, 16711790, 16711782, 16711773, 16711765, 16711756, 16711748, 16711739,
                        16711731, 16711722, 16711714, 16711705, 16711697, 16711688};
                        
-int fadeVals[] = {0x010101, 0x010101, 0x020202, 0x030303, 0x050505, 0x080808, 0x0b0b0b, 0x0f0f0f, 0x141414, 0x191919, 0x1e1e1e,
-                  0x242424, 0x2b2b2b, 0x313131, 0x383838, 0x404040, 0x484848, 0x505050, 0x585858, 0x616161, 0x696969, 0x727272,
-                  0x7b7b7b, 0x848484, 0x8d8d8d, 0x969696, 0x9e9e9e, 0xa7a7a7, 0xafafaf, 0xb7b7b7, 0xbfbfbf, 0xc7c7c7, 0xcecece,
-                  0xd4d4d4, 0xdbdbdb, 0xe1e1e1, 0xe6e6e6, 0xebebeb, 0xf0f0f0, 0xf4f4f4, 0xf7f7f7, 0xfafafa, 0xfcfcfc, 0xfdfdfd,
-                  0xfefefe, 0xffffff, 0xfefefe, 0xfdfdfd, 0xfcfcfc, 0xfafafa, 0xf7f7f7, 0xf4f4f4, 0xf0f0f0, 0xebebeb, 0xe6e6e6,
-                  0xe1e1e1, 0xdbdbdb, 0xd4d4d4, 0xcecece, 0xc7c7c7, 0xbfbfbf, 0xb7b7b7, 0xafafaf, 0xa7a7a7, 0x9e9e9e, 0x969696,
-                  0x8d8d8d, 0x848484, 0x7b7b7b, 0x727272, 0x696969, 0x616161, 0x585858, 0x505050, 0x484848, 0x404040, 0x383838,
-                  0x313131, 0x2b2b2b, 0x242424, 0x1e1e1e, 0x191919, 0x141414, 0x0f0f0f, 0x0b0b0b, 0x080808, 0x050505, 0x030303,
-                  0x020202, 0x010101, 0x000000};
+int fadeVals[] =      {0x010101, 0x010101, 0x020202, 0x030303, 0x050505, 0x080808, 0x0b0b0b, 0x0f0f0f, 0x141414, 0x191919, 0x1e1e1e,
+                       0x242424, 0x2b2b2b, 0x313131, 0x383838, 0x404040, 0x484848, 0x505050, 0x585858, 0x616161, 0x696969, 0x727272,
+                       0x7b7b7b, 0x848484, 0x8d8d8d, 0x969696, 0x9e9e9e, 0xa7a7a7, 0xafafaf, 0xb7b7b7, 0xbfbfbf, 0xc7c7c7, 0xcecece,
+                       0xd4d4d4, 0xdbdbdb, 0xe1e1e1, 0xe6e6e6, 0xebebeb, 0xf0f0f0, 0xf4f4f4, 0xf7f7f7, 0xfafafa, 0xfcfcfc, 0xfdfdfd,
+                       0xfefefe, 0xffffff, 0xfefefe, 0xfdfdfd, 0xfcfcfc, 0xfafafa, 0xf7f7f7, 0xf4f4f4, 0xf0f0f0, 0xebebeb, 0xe6e6e6,
+                       0xe1e1e1, 0xdbdbdb, 0xd4d4d4, 0xcecece, 0xc7c7c7, 0xbfbfbf, 0xb7b7b7, 0xafafaf, 0xa7a7a7, 0x9e9e9e, 0x969696,
+                       0x8d8d8d, 0x848484, 0x7b7b7b, 0x727272, 0x696969, 0x616161, 0x585858, 0x505050, 0x484848, 0x404040, 0x383838,
+                       0x313131, 0x2b2b2b, 0x242424, 0x1e1e1e, 0x191919, 0x141414, 0x0f0f0f, 0x0b0b0b, 0x080808, 0x050505, 0x030303,
+                       0x020202, 0x010101, 0x000000};
+
+int gammaCurve[] =    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                       1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 8,
+                       8, 8, 9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19, 20,
+                       20, 21, 21, 22, 22, 23, 24, 24, 25, 25, 26, 27, 27, 28, 29, 29, 30, 31, 32, 32, 33, 34, 35, 35, 36, 37, 38, 39,
+                       39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 50, 51, 52, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 66, 67,
+                       68, 69, 70, 72, 73, 74, 75, 77, 78, 79, 81, 82, 83, 85, 86, 87, 89, 90, 92, 93, 95, 96, 98, 99, 101, 102, 104,
+                       105, 107, 109, 110, 112, 114, 115, 117, 119, 120, 122, 124, 126, 127, 129, 131, 133, 135, 137, 138, 140, 142,
+                       144, 146, 148, 150, 152, 154, 156, 158, 160, 162, 164, 167, 169, 171, 173, 175, 177, 180, 182, 184, 186, 189,
+                       191, 193, 196, 198, 200, 203, 205, 208, 210, 213, 215, 218, 220, 223, 225, 228, 231, 233, 236, 239, 241, 244,
+                       247, 249, 252, 255};
 
 void setup()
 {
@@ -177,9 +188,9 @@ void loop()
               color1Str.toCharArray(color1StrBuf, 7);
               color2Str.toCharArray(color2StrBuf, 7);
               
-              color1Cmd = strtol(color1StrBuf, NULL, 16);
-              color2Cmd = strtol(color2StrBuf, NULL, 16);
-              colorCombo = addColors(color1Cmd, color2Cmd);
+              color1Cmd = gammaCorrect(strtol(color1StrBuf, NULL, 16));
+              color2Cmd = gammaCorrect(strtol(color2StrBuf, NULL, 16));
+              colorCombo = gammaCorrect(addColors(color1Cmd, color2Cmd));
               
               Serial.printf("bytesRead:\t%d\n", bytesRead);
               Serial.println("cmd:\t\t" + cmd);
@@ -350,7 +361,7 @@ void loop()
       
       //every update, set a pixel to a random value and fade them
       for(int j = 0; j < 334; j++){
-        leds.setPixel(j, fadeVals[index] & random(0xFFFFFF));
+        leds.setPixel(j, fadeVals[index] & color1Cmd);
       }
       
       if(index < 90){index++;}else{index = 0;}
@@ -710,5 +721,14 @@ int addColors(int color1, int color2){
   
   int result = newRed | newGreen | newBlue;
   
+  return result;
+}
+
+int gammaCorrect(int color){
+  int red = (color & 0xFF0000) >> 16;
+  int green = (color & 0x00FF00) >> 8;
+  int blue = color & 0x0000FF;
+  
+  int result = (gammaCurve[red] << 16) | (gammaCurve[green] << 8) | gammaCurve[blue];
   return result;
 }
