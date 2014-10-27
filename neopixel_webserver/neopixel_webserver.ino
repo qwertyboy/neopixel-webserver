@@ -55,11 +55,12 @@ unsigned long prevMillis2 = 0;
 
 //effect update intervals
 int rainbowInterval = 56;
-int pulseInterval = 50;
+int pulseInterval = 30;
 int spinInterval = 10;
 int spinInterval2 = 15;
 int chaseInterval = 50;
 int sparkleInterval = 1300;  //Tune this to get the desired update speed for sparkle effect (1300 default)
+int colorInterval = 30000;
 
 //effect modes and color arrays
 int ledMode = 0;
@@ -188,9 +189,11 @@ void loop()
               color1Str.toCharArray(color1StrBuf, 7);
               color2Str.toCharArray(color2StrBuf, 7);
               
-              color1Cmd = gammaCorrect(strtol(color1StrBuf, NULL, 16));
-              color2Cmd = gammaCorrect(strtol(color2StrBuf, NULL, 16));
+              color1Cmd = strtol(color1StrBuf, NULL, 16);
+              color2Cmd = strtol(color2StrBuf, NULL, 16);
               colorCombo = gammaCorrect(addColors(color1Cmd, color2Cmd));
+              color1Cmd = gammaCorrect(color1Cmd);
+              color2Cmd = gammaCorrect(color2Cmd);
               
               Serial.printf("bytesRead:\t%d\n", bytesRead);
               Serial.println("cmd:\t\t" + cmd);
@@ -220,10 +223,12 @@ void loop()
                 ledMode = 8;
               }else if(modeCmd == "sparkle"){
                 ledMode = 9;
-              }else if(modeCmd == "random"){
+              }else if(modeCmd == "randSparkle"){
                 ledMode = 10;
-              }else if(modeCmd == "weatherClock"){
+              }else if(modeCmd == "random"){
                 ledMode = 11;
+              }else if(modeCmd == "weatherClock"){
+                ledMode = 12;
               }else if(modeCmd == "off"){
                 ledMode = 0;
               }else{
@@ -244,13 +249,14 @@ void loop()
           client.println("<select name='mode'>");
           client.println("<option value='staticColor'>Static Color (Requires color selection)</option>");
           client.println("<option value='slowRainbow'>Slow Rainbow</option>");
-          client.println("<option value='pulse'>Pulse</option>");
+          client.println("<option value='pulse'>Red Alert!</option>");
           client.println("<option value='spin'>Spin (Requires color selection)</option>");
           client.println("<option value='spinBounce'>Spin Bounce (Requires color selection)</option>");
           client.println("<option value='doubleSpin'>Double Spin (Requires 2 color selections)</option>");
           client.println("<option value='theaterChase'>Theater Chase (Requires color selection)</option>");
           client.println("<option value='rainbowChase'>Rainbow Theater Chase</option>");
           client.println("<option value='sparkle'>Thparkle (Requires color selection)</option>");
+          client.println("<option value='randSparkle'>Random Thparkle</option>");
           client.println("<option value='random'>Random Animations</option>");
           client.println("<option value='weatherClock'>Weather Clock</option>");
           client.println("<option value='off'>Off</option>");
@@ -262,7 +268,7 @@ void loop()
           client.println("</div>");
           client.println("<div align='center'>");
           client.println("<h2>Live Camera</h2>");
-          client.println("<img src='http://nathanspi.no-ip.org:8082'></img>");
+          client.println("<img src=''></img>");
           client.println("</div>");
           client.println("</body>");
           client.println("</html>");
@@ -361,7 +367,7 @@ void loop()
       
       //every update, set a pixel to a random value and fade them
       for(int j = 0; j < 334; j++){
-        leds.setPixel(j, fadeVals[index] & color1Cmd);
+        leds.setPixel(j, fadeVals[index] & 0xFF0000);
       }
       
       if(index < 90){index++;}else{index = 0;}
@@ -549,6 +555,7 @@ void loop()
       }
         
       leds.show();
+      leds.show();
       
       //clear every third pixel
       for(int i=0; i < 334; i=i+3){
@@ -581,9 +588,11 @@ void loop()
       //set every third pixel with a rainbow color
       for(int i=0; i < 334; i=i+3){
         int index = (color + i) % 180;
-        leds.setPixel(i+j, rainbowColors[index]);
+        leds.setPixel(i+j, gammaCorrect(rainbowColors[index]));
       }
         
+      leds.show();
+      leds.show();
       leds.show();
       
       //clear every third pixel
@@ -636,9 +645,56 @@ void loop()
     lastMode = 9;
   }
   
-  //Random Animations
+  //color change sparkle
   else if(ledMode == 10){
+    int randColor = random(179);
+    
+    //clear leds if changing modes
     if(lastMode != 10){
+      for(int i = 0; i < 334; i++){
+        leds.setPixel(i, 0);
+      }
+      
+      color1Cmd = gammaCorrect(rainbowColors[randColor]);
+      leds.show();
+      Serial.println("Cleared LEDs");
+    }
+    
+    //get the component of the color
+    int blueOct = color1Cmd & 0x0000FF;
+    int greenOct = (color1Cmd & 0x00FF00) >> 8;
+    int redOct = (color1Cmd & 0xFF0000) >> 16;
+    
+    for(int i = 0; i < 334; i++){
+      int brightness = 0;
+      int rand = random(0xFF);
+      rand = (rand * rand) / 0xFF;
+      
+      //get a random brightness and pass it to the color component
+      brightness += rand * blueOct / 0xFF;
+      brightness += (rand * greenOct / 0xFF) << 8;
+      brightness += (rand * redOct / 0xFF) << 16;
+      
+      if(!random(sparkleInterval)){
+        leds.setPixel(i, brightness);
+      }
+      
+      if(millis1 - prevMillis1 > colorInterval){
+        prevMillis1 = millis1;
+        
+        color1Cmd = gammaCorrect(rainbowColors[randColor]);
+      }
+    }
+    
+    leds.show();
+    leds.show();
+    
+    lastMode = 10;
+  }
+  
+  //Random Animations
+  else if(ledMode == 11){
+    if(lastMode != 11){
       for(int i = 0; i < 334; i++){
         leds.setPixel(i, 0);
       }
@@ -654,12 +710,12 @@ void loop()
     leds.show();
     leds.show();
     
-    lastMode = 10;
+    lastMode = 11;
   }
   
   //Weather clock
-  else if(ledMode == 11){
-    if(lastMode != 11){
+  else if(ledMode == 12){
+    if(lastMode != 12){
       for(int i = 0; i < 334; i++){
         leds.setPixel(i, 0);
       }
@@ -675,7 +731,7 @@ void loop()
     leds.show();
     leds.show();
     
-    lastMode = 11;
+    lastMode = 12;
   }
   
   //ledMode not valid or zero, so turn off all but last one
@@ -698,7 +754,7 @@ void sendHeader(EthernetClient client, char *title){
   client.println();
   client.print("<html><head><title>");
   client.print(title);
-  client.println("</title><body>");
+  client.println("</title><body background='http://apod.nasa.gov/apod/image/1403/heic1404b1920.jpg'><font color='white'>");
 }
 
 //function to add colors
