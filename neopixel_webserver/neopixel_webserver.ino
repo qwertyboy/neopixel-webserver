@@ -32,7 +32,7 @@ char cmdBuffer[128];
 int color1Cmd = 0;
 int color2Cmd = 0;
 int colorCombo = 0;
-int effectSpeed = 0;
+float effectSpeed = 1.0;
 
 //led setup
 const int ledsPerStrip = 45;
@@ -181,8 +181,8 @@ void loop()
               
               //get effect speed
               sptr = strstr(cmdBuffer, "speed=");
-              strncpy(cmd, sptr + 6, 2);
-              effectSpeed = strtol(cmd, NULL, 10);
+              strncpy(cmd, sptr + 6, 4);
+              effectSpeed = strtof(cmd, NULL);
               
               colorCombo = gammaCorrect(addColors(color1Cmd, color2Cmd));
               color1Cmd = gammaCorrect(color1Cmd);
@@ -191,9 +191,7 @@ void loop()
               Serial.printf("bytesRead:\t%d\n", bytesRead);
               Serial.printf("cmdBuffer:\t%s\n", cmdBuffer);
               Serial.printf("ledMode:\t%d\n", ledMode);
-              Serial.printf("effectSpeed:\t%d\n", effectSpeed);
-              //Serial.println("color1Str:\t" + color1Str);
-              //Serial.println("color2Str:\t" + color2Str);
+              Serial.printf("effectSpeed:\t%f\n", effectSpeed);
               Serial.printf("color1Cmd:\t%x\n", color1Cmd);
               Serial.printf("color2cmd:\t%x\n", color2Cmd);
               Serial.printf("colorCombo:\t%x\n", colorCombo);
@@ -205,7 +203,6 @@ void loop()
 
           client.println("<div align='left'>");
           client.println("<h3>Select a mode:</h3>");
-          //client.println("Static Color, Spin, Spin Bounce, Theater Chase, and Sparkle require a color selection.");
           client.println("<form action='/' method='POST'>");
           client.println("<select name='mode'>");
           client.println("<option value=01>Static Color (Requires color selection)</option>");
@@ -224,7 +221,7 @@ void loop()
           client.println("</select><br>");
           client.println("Color 1: <input type='color' name='customColor'>");
           client.println("Color 2: <input type='color' name='customColor2'><br>");
-          client.println("Speed (1-10): <input type='number' name='speed' min='1' max='10'>&nbsp;&nbsp;&nbsp;&nbsp;<input type='submit'>");
+          client.println("Speed (Precentage): <input type='range' name='speed' min=0.01 max=1.99 step=0.01>&nbsp;&nbsp;&nbsp;&nbsp;<input type='submit'>");
           client.println("</form>");
           client.println("</div>");
           client.println("</body>");
@@ -287,7 +284,7 @@ void loop()
       Serial.println("Cleared LEDs");
     }
     
-    if(millis1 - prevMillis1 > rainbowInterval){
+    if(millis1 - prevMillis1 > rainbowInterval / effectSpeed){
       prevMillis1 = millis1;
       
       //every update, get a new value from the table  
@@ -319,7 +316,7 @@ void loop()
       Serial.println("Cleared LEDs");
     }
     
-    if(millis1 - prevMillis1 > pulseInterval){
+    if(millis1 - prevMillis1 > pulseInterval / effectSpeed){
       prevMillis1 = millis1;
       
       //every update, set a pixel to a random value and fade them
@@ -359,7 +356,7 @@ void loop()
       
     leds.show();
       
-    if(millis1 - prevMillis1 > spinInterval){
+    if(millis1 - prevMillis1 > spinInterval / effectSpeed){
       prevMillis1 = millis1;
       
       leds.setPixel(pos - 1, 0);
@@ -391,7 +388,7 @@ void loop()
       
       leds.show();
       
-      if(millis1 - prevMillis1 > spinInterval){
+      if(millis1 - prevMillis1 > spinInterval / effectSpeed){
         prevMillis1 = millis1;
       
         leds.setPixel(pos - 1, 0);
@@ -406,7 +403,7 @@ void loop()
       
       leds.show();
       
-      if(millis1 - prevMillis1 > spinInterval){
+      if(millis1 - prevMillis1 > spinInterval / effectSpeed){
         prevMillis1 = millis1;
       
         if(pos > 29){pos--;}else{pos = 0; dir = !dir;}
@@ -468,7 +465,7 @@ void loop()
     leds.show();
     
     //update segment 1
-    if(millis1 - prevMillis1 > spinInterval){
+    if(millis1 - prevMillis1 > spinInterval / effectSpeed){
       prevMillis1 = millis1;
       
       leds.setPixel(segment1[0], 0);
@@ -478,7 +475,7 @@ void loop()
     }
     
     //update segment 2
-    if(millis2 - prevMillis2 > spinInterval2){
+    if(millis2 - prevMillis2 > spinInterval2 / effectSpeed){
       prevMillis2 = millis2;
       
       leds.setPixel(segment2[0], 0);
@@ -503,7 +500,7 @@ void loop()
       Serial.println("Cleared LEDs");
     }
     
-    if(millis1 - prevMillis1 > chaseInterval){
+    if(millis1 - prevMillis1 > chaseInterval / effectSpeed){
       prevMillis1 = millis1;
       
       //set every third pixel
@@ -539,7 +536,7 @@ void loop()
       Serial.println("Cleared LEDs");
     }
     
-    if(millis1 - prevMillis1 > chaseInterval){
+    if(millis1 - prevMillis1 > chaseInterval / effectSpeed){
       prevMillis1 = millis1;
       
       //set every third pixel with a rainbow color
@@ -592,7 +589,7 @@ void loop()
       brightness += (rand * greenOct / 0xFF) << 8;
       brightness += (rand * redOct / 0xFF) << 16;
       
-      if(!random(sparkleInterval)){
+      if(!random(sparkleInterval / effectSpeed)){
         leds.setPixel(i, brightness);
       }
     }
@@ -633,11 +630,11 @@ void loop()
       brightness += (rand * greenOct / 0xFF) << 8;
       brightness += (rand * redOct / 0xFF) << 16;
       
-      if(!random(sparkleInterval)){
+      if(!random(sparkleInterval / effectSpeed)){
         leds.setPixel(i, brightness);
       }
       
-      if(millis1 - prevMillis1 > colorInterval){
+      if(millis1 - prevMillis1 > colorInterval / effectSpeed){
         prevMillis1 = millis1;
         
         color1Cmd = gammaCorrect(rainbowColors[randColor]);
