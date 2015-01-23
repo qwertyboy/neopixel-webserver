@@ -24,21 +24,15 @@ byte ip[] = {192, 168, 2, 13};
 int dhcpSuccess = 0;
 int retry = 0;
 int maxRetries = 4;
-const int MAX_PAGENAME_LEN = 8; //max characters in page name 
-char buffer[MAX_PAGENAME_LEN+1]; // additional character for terminating null
+char buffer[9]; // additional character for terminating null
 EthernetServer server(80);
 
 //html command variables
-char cmdBuffer[129];
-String cmd = ""; 
-String modeCmd = "";
-String color1Str = "";
-String color2Str = "";
-char color1StrBuf[7];
-char color2StrBuf[7];
+char cmdBuffer[128];
 int color1Cmd = 0;
 int color2Cmd = 0;
 int colorCombo = 0;
+int effectSpeed = 0;
 
 //led setup
 const int ledsPerStrip = 45;
@@ -109,6 +103,8 @@ void setup()
   leds.begin();
   leds.show();
   
+  pinMode(0, OUTPUT);
+  
   //generate random starting positions
   for(int i = 0; i < 100; i++){
     randPos[i] = random(333);
@@ -161,81 +157,46 @@ void loop()
             
             while(client.findUntil("mode=", "\n\r")){
               //clear the buffers and command strings
-              memset(cmdBuffer, 0, 129);
-              memset(color1StrBuf, 0, 7);
-              memset(color2StrBuf, 0, 7);
+              memset(cmdBuffer, 0, 128);
+              char cmd[32] = "";
+              char * sptr;
               
-              cmd = "";
-              modeCmd = "";
-              color1Str = "";
-              color2Str = "";
-              color1Cmd = 0;
-              color2Cmd = 0;
-              colorCombo = 0;
+              //read commands
+              byte bytesRead = client.readBytesUntil('\n\r', cmdBuffer, 128);
               
-              byte bytesRead = client.readBytesUntil('\n\r', cmdBuffer, 129);
+              //parse the commands
+              //get led mode
+              strncpy(cmd, cmdBuffer, 2);
+              ledMode = strtol(cmd, NULL, 10);
               
-              //put the command buffer into a string
-              for(int i = 0; i < bytesRead; i++){
-                cmd = cmd + cmdBuffer[i];
-              }
+              //get first custom color
+              sptr = strstr(cmdBuffer, "customColor=\%23");
+              strncpy(cmd, sptr + 15, 6);
+              color1Cmd = strtol(cmd, NULL, 16);
               
-              modeCmd = cmd.substring(0, cmd.indexOf('&'));
+              //get second custom color
+              sptr = strstr(cmdBuffer, "customColor2=\%23");
+              strncpy(cmd, sptr + 16, 6);
+              color2Cmd = strtol(cmd, NULL, 16);
               
-              //get the string for each color and convert to a number
-              color1Str = cmd.substring((cmd.indexOf("r=%23") + 5), cmd.indexOf("&customColor2"));
-              color2Str = cmd.substring(cmd.indexOf("2=%23") + 5);
+              //get effect speed
+              sptr = strstr(cmdBuffer, "speed=");
+              strncpy(cmd, sptr + 6, 2);
+              effectSpeed = strtol(cmd, NULL, 10);
               
-              color1Str.toCharArray(color1StrBuf, 7);
-              color2Str.toCharArray(color2StrBuf, 7);
-              
-              color1Cmd = strtol(color1StrBuf, NULL, 16);
-              color2Cmd = strtol(color2StrBuf, NULL, 16);
               colorCombo = gammaCorrect(addColors(color1Cmd, color2Cmd));
               color1Cmd = gammaCorrect(color1Cmd);
               color2Cmd = gammaCorrect(color2Cmd);
               
               Serial.printf("bytesRead:\t%d\n", bytesRead);
-              Serial.println("cmd:\t\t" + cmd);
-              Serial.println("modeCmd:\t" + modeCmd);
+              Serial.printf("cmdBuffer:\t%s\n", cmdBuffer);
+              Serial.printf("ledMode:\t%d\n", ledMode);
+              Serial.printf("effectSpeed:\t%d\n", effectSpeed);
               //Serial.println("color1Str:\t" + color1Str);
               //Serial.println("color2Str:\t" + color2Str);
               Serial.printf("color1Cmd:\t%x\n", color1Cmd);
               Serial.printf("color2cmd:\t%x\n", color2Cmd);
               Serial.printf("colorCombo:\t%x\n", colorCombo);
-              
-              //pick effect mode
-              if(modeCmd == "staticColor"){
-                ledMode = 1;
-              }else if(modeCmd == "slowRainbow"){
-                ledMode = 2;
-              }else if(modeCmd == "pulse"){
-                ledMode = 3;
-              }else if(modeCmd == "spin"){
-                ledMode = 4;
-              }else if(modeCmd == "spinBounce"){
-                ledMode = 5;
-              }else if(modeCmd == "doubleSpin"){
-                ledMode = 6;
-              }else if(modeCmd == "theaterChase"){
-                ledMode = 7;
-              }else if(modeCmd == "rainbowChase"){
-                ledMode = 8;
-              }else if(modeCmd == "sparkle"){
-                ledMode = 9;
-              }else if(modeCmd == "randSparkle"){
-                ledMode = 10;
-              }else if(modeCmd == "random"){
-                ledMode = 11;
-              }else if(modeCmd == "weatherClock"){
-                ledMode = 12;
-              }else if(modeCmd == "off"){
-                ledMode = 0;
-              }else{
-                ledMode = -1;
-              }
-              
-              Serial.printf("ledMode:\t%d\n", ledMode);
             }
           }
           
@@ -247,28 +208,24 @@ void loop()
           //client.println("Static Color, Spin, Spin Bounce, Theater Chase, and Sparkle require a color selection.");
           client.println("<form action='/' method='POST'>");
           client.println("<select name='mode'>");
-          client.println("<option value='staticColor'>Static Color (Requires color selection)</option>");
-          client.println("<option value='slowRainbow'>Slow Rainbow</option>");
-          client.println("<option value='pulse'>Red Alert!</option>");
-          client.println("<option value='spin'>Spin (Requires color selection)</option>");
-          client.println("<option value='spinBounce'>Spin Bounce (Requires color selection)</option>");
-          client.println("<option value='doubleSpin'>Double Spin (Requires 2 color selections)</option>");
-          client.println("<option value='theaterChase'>Theater Chase (Requires color selection)</option>");
-          client.println("<option value='rainbowChase'>Rainbow Theater Chase</option>");
-          client.println("<option value='sparkle'>Thparkle (Requires color selection)</option>");
-          client.println("<option value='randSparkle'>Random Thparkle</option>");
-          client.println("<option value='random'>Random Animations</option>");
-          client.println("<option value='weatherClock'>Weather Clock</option>");
-          client.println("<option value='off'>Off</option>");
+          client.println("<option value=01>Static Color (Requires color selection)</option>");
+          client.println("<option value=02>Slow Rainbow</option>");
+          client.println("<option value=03>Red Alert!</option>");
+          client.println("<option value=04>Spin (Requires color selection)</option>");
+          client.println("<option value=05>Spin Bounce (Requires color selection)</option>");
+          client.println("<option value=06>Double Spin (Requires 2 color selections)</option>");
+          client.println("<option value=07>Theater Chase (Requires color selection)</option>");
+          client.println("<option value=08>Rainbow Theater Chase</option>");
+          client.println("<option value=09>Thparkle (Requires color selection)</option>");
+          client.println("<option value=10>Random Thparkle</option>");
+          client.println("<option value=11>Random Animations</option>");
+          client.println("<option value=12>Weather Clock</option>");
+          client.println("<option value=0>Off</option>");
           client.println("</select><br>");
           client.println("Color 1: <input type='color' name='customColor'>");
-          client.println("Color 2: <input type='color' name='customColor2'>");
-          client.println("<input type='submit'>");
+          client.println("Color 2: <input type='color' name='customColor2'><br>");
+          client.println("Speed (1-10): <input type='number' name='speed' min='1' max='10'>&nbsp;&nbsp;&nbsp;&nbsp;<input type='submit'>");
           client.println("</form>");
-          client.println("</div>");
-          client.println("<div align='center'>");
-          client.println("<h2>Live Camera</h2>");
-          client.println("<img src=''></img>");
           client.println("</div>");
           client.println("</body>");
           client.println("</html>");
@@ -591,6 +548,7 @@ void loop()
         leds.setPixel(i+j, gammaCorrect(rainbowColors[index]));
       }
         
+      leds.show();
       leds.show();
       leds.show();
       leds.show();
