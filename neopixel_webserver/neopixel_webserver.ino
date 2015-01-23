@@ -165,19 +165,26 @@ void loop()
               byte bytesRead = client.readBytesUntil('\n\r', cmdBuffer, 128);
               
               //parse the commands
-              //get led mode
+              //get led mode and check if valid
               strncpy(cmd, cmdBuffer, 2);
-              ledMode = strtol(cmd, NULL, 10);
+              if(!isdigit(cmd[0]) || !isdigit(cmd[1])){
+                ledMode = -1;
+              }else{
+                ledMode = strtol(cmd, NULL, 10);
+              }
+              memset(cmd, 0, 32);
               
               //get first custom color
               sptr = strstr(cmdBuffer, "customColor=\%23");
               strncpy(cmd, sptr + 15, 6);
               color1Cmd = strtol(cmd, NULL, 16);
+              memset(cmd, 0, 32);
               
               //get second custom color
               sptr = strstr(cmdBuffer, "customColor2=\%23");
               strncpy(cmd, sptr + 16, 6);
               color2Cmd = strtol(cmd, NULL, 16);
+              memset(cmd, 0, 32);
               
               //get effect speed
               sptr = strstr(cmdBuffer, "speed=");
@@ -217,7 +224,7 @@ void loop()
           client.println("<option value=10>Random Thparkle</option>");
           client.println("<option value=11>Random Animations</option>");
           client.println("<option value=12>Weather Clock</option>");
-          client.println("<option value=0>Off</option>");
+          client.println("<option value=00>Off</option>");
           client.println("</select><br>");
           client.println("Color 1: <input type='color' name='customColor'>");
           client.println("Color 2: <input type='color' name='customColor2'><br>");
@@ -689,7 +696,18 @@ void loop()
     lastMode = 12;
   }
   
-  //ledMode not valid or zero, so turn off all but last one
+  //turn leds off
+  else if(ledMode == 0){
+    lastMode = 0;
+    
+    for(int i = 0; i < 334; i++){
+      leds.setPixel(i, 0x000000);
+    }
+    
+    leds.show();
+  }
+  
+  //ledMode not valid, so turn off all but last one
   else{
     lastMode = -1;
     
@@ -697,8 +715,8 @@ void loop()
       leds.setPixel(i, 0x000000);
     }
     
-    leds.setPixel(333, 0x010101);
-    //leds.show();
+    leds.setPixel(333, 0x0F0000);
+    leds.show();
   }
 }
 
