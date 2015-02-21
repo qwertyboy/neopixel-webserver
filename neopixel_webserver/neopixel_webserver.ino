@@ -728,8 +728,6 @@ void loop()
     }
     
     for(int i = 0; i < 30; i++){
-      //int index = color % 180;
-      
       if((pos + i) > 333){
         leds.setPixel((pos + i) - 334, gammaCorrect(rainbowColors[color]));
       }
@@ -764,6 +762,7 @@ void loop()
     if(millis3 - prevMillis3 > randInterval){
       prevMillis3 = millis3;
       
+      //pick new random stuff!
       newMode = random(1, 11);
       color1Cmd = gammaCorrect(rainbowColors[random(179)]);
       color2Cmd = gammaCorrect(rainbowColors[random(179)]);
@@ -776,6 +775,7 @@ void loop()
       Serial.printf("colorCombo:\t%x\n", colorCombo);
       Serial.printf("effectSpeed:\t%.2f\n", effectSpeed);
       
+      //clear the leds on mode change!
       for(int i = 0; i < 334; i++){
         leds.setPixel(i, 0x000000);
       }
@@ -846,14 +846,17 @@ void sendHeader(EthernetClient client, char *title){
 
 //function to add colors
 int addColors(int color1, int color2){
+  //get first color components
   int color1Red = color1 & 0xFF0000;
   int color1Green = color1 & 0x00FF00;
   int color1Blue = color1 & 0x0000FF;
   
+  //get second color components
   int color2Red = color2 & 0xFF0000;
   int color2Green = color2 & 0x00FF00;
   int color2Blue = color2 & 0x0000FF;
   
+  //average the color components
   int newRed = (color1Red + color2Red) / 2;
   int newGreen = (color1Green + color2Green) / 2;
   int newBlue = (color1Blue + color2Blue) / 2;
@@ -862,6 +865,7 @@ int addColors(int color1, int color2){
   newGreen = newGreen & 0x00FF00;
   newBlue = newBlue & 0x0000FF;
   
+  //or the components back together
   int result = newRed | newGreen | newBlue;
   return result;
 }
@@ -871,6 +875,7 @@ int gammaCorrect(int color){
   int green = (color & 0x00FF00) >> 8;
   int blue = color & 0x0000FF;
   
+  //map the color to the curve
   int result = (gammaCurve[red] << 16) | (gammaCurve[green] << 8) | gammaCurve[blue];
   return result;
 }
